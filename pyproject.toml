@@ -17,8 +17,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Topic :: Utilities",
     "Topic :: Office/Business :: Scheduling",
-    "Topic :: Software Development :: Libraries :: Python Modules",
-    "Framework :: MCP"
+    "Topic :: Software Development :: Libraries :: Python Modules"
 ]
 dependencies = [
     "httpx>=0.28.1",
