@@ -1,12 +1,13 @@
 [project]
-name = "things-mcp"
-version = "0.1.1"
+name = "things-fastmcp"
+version = "1.0.0"
 description = "Things app Model Context Protocol (MCP) server for Claude and Anthropic Windsurf"
 readme = "README.md"
 requires-python = ">=3.12"
 license = {text = "MIT License"}
 authors = [
-    {name = "Harald Lindstrøm", email = "hald@users.noreply.github.com"}
+    {name = "Harald Lindstrøm", email = "hald@users.noreply.github.com"},
+    {name = "excelsier", email = "51231325+excelsier@users.noreply.github.com"}
 ]
 keywords = ["mcp", "anthropic", "claude", "things", "task-management", "productivity"]
 classifiers = [
@@ -26,12 +27,12 @@ dependencies = [
 ]
 
 [project.scripts]
-things-mcp = "src.things_mcp.fast_server:run_things_mcp_server"
+things-fastmcp = "src.things_mcp.fast_server:run_things_mcp_server"
 
 [project.urls]
-"Homepage" = "https://github.com/hald/things-mcp"
-"Bug Tracker" = "https://github.com/hald/things-mcp/issues"
-"Documentation" = "https://github.com/hald/things-mcp#readme"
+"Homepage" = "https://github.com/excelsier/things-mcp"
+"Bug Tracker" = "https://github.com/excelsier/things-mcp/issues"
+"Documentation" = "https://github.com/excelsier/things-mcp#readme"
 
 [build-system]
 requires = ["hatchling"]
