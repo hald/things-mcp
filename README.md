@@ -173,6 +173,49 @@ Restart the Claude Desktop app to apply the changes.
 ### get-recent
 - `period` - Time period (e.g., '3d', '1w', '2m', '1y')
 
+### add-todo
+- `title` - Title of the todo
+- `notes` (optional) - Notes for the todo
+- `when` (optional) - When to schedule the todo (today, tomorrow, evening, anytime, someday, or YYYY-MM-DD)
+- `deadline` (optional) - Deadline for the todo (YYYY-MM-DD)
+- `tags` (optional) - Tags to apply to the todo
+- `list_title` or `list_id` (optional) - Title or ID of project/area to add to
+- `heading` (optional) - Heading to add under
+- `checklist_items` (optional) - Checklist items to add
+
+### update-todo
+- `id` - ID of the todo to update
+- `title` (optional) - New title
+- `notes` (optional) - New notes
+- `when` (optional) - New schedule
+- `deadline` (optional) - New deadline
+- `tags` (optional) - New tags
+- `completed` (optional) - Mark as completed
+- `canceled` (optional) - Mark as canceled
+
+### add-project
+- `title` - Title of the project
+- `notes` (optional) - Notes for the project
+- `when` (optional) - When to schedule the project
+- `deadline` (optional) - Deadline for the project
+- `tags` (optional) - Tags to apply to the project
+- `area_title` or `area_id` (optional) - Title or ID of area to add to
+- `todos` (optional) - Initial todos to create in the project
+
+### update-project
+- `id` - ID of the project to update
+- `title` (optional) - New title
+- `notes` (optional) - New notes
+- `when` (optional) - New schedule
+- `deadline` (optional) - New deadline
+- `tags` (optional) - New tags
+- `completed` (optional) - Mark as completed
+- `canceled` (optional) - Mark as canceled
+
+### show-item
+- `id` - ID of item to show, or one of: inbox, today, upcoming, anytime, someday, logbook
+- `query` (optional) - Optional query to filter by
+- `filter_tags` (optional) - Optional tags to filter by
 
 ## Authentication Token Configuration
 
