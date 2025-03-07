@@ -1,13 +1,55 @@
 # Python-generated files
 __pycache__/
-*.py[oc]
+*.py[cod]
+*$py.class
+*.so
+.Python
 build/
+develop-eggs/
 dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
 wheels/
-*.egg-info
+*.egg-info/
+.installed.cfg
+*.egg
 
 # Virtual environments
+.env
 .venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
 
-# Github
-.github/
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Keep GitHub workflow files
+!.github/
+!.github/workflows/
+
+# macOS specific files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Local configuration files that may contain sensitive information
+*.local.json
+
+# MCP specific files
+things_dlq.json
+
+# Logs
+*.log
