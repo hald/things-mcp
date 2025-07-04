@@ -11,13 +11,13 @@ def construct_url(command: str, params: Dict[str, Any]) -> str:
     """Construct a Things URL from command and parameters."""
     # Start with base URL
     url = f"things:///{command}"
-    
+
     # Get authentication token if needed
     if command in ['update', 'update-project']:
         token = things.token()
         if token:
             params['auth-token'] = token
-    
+
     # URL encode parameters
     if params:
         encoded_params = []
@@ -31,9 +31,9 @@ def construct_url(command: str, params: Dict[str, Any]) -> str:
             elif isinstance(value, list):
                 value = ','.join(str(v) for v in value)
             encoded_params.append(f"{key}={urllib.parse.quote(str(value))}")
-        
+
         url += "?" + "&".join(encoded_params)
-    
+
     return url
 
 def add_todo(title: str, notes: Optional[str] = None, when: Optional[str] = None,
@@ -53,7 +53,7 @@ def add_todo(title: str, notes: Optional[str] = None, when: Optional[str] = None
         'heading': heading,
         'completed': completed
     }
-    
+
     # Handle tags separately since they need to be comma-separated
     if tags:
         params['tags'] = ','.join(tags)
@@ -74,15 +74,16 @@ def add_project(title: str, notes: Optional[str] = None, when: Optional[str] = N
         # Change todos to be newline separated
         'to-dos': '\n'.join(todos) if todos else None
     }
-    
+
     # Handle tags separately since they need to be comma-separated
     if tags:
         params['tags'] = ','.join(tags)
-        
+
     return construct_url('add-project', {k: v for k, v in params.items() if v is not None})
 
 def update_todo(id: str, title: Optional[str] = None, notes: Optional[str] = None,
                 when: Optional[str] = None, deadline: Optional[str] = None,
+                list: Optional[str] = None,list_id: Optional[str] = None,
                 tags: Optional[list[str]] = None, completed: Optional[bool] = None,
                 canceled: Optional[bool] = None) -> str:
     """Construct URL to update an existing todo."""
@@ -92,6 +93,8 @@ def update_todo(id: str, title: Optional[str] = None, notes: Optional[str] = Non
         'notes': notes,
         'when': when,
         'deadline': deadline,
+        'list': list,
+        'list-id': list_id,
         'tags': tags,
         'completed': completed,
         'canceled': canceled

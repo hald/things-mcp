@@ -346,6 +346,14 @@ def get_tools_list() -> list[types.Tool]:
                         "type": "string",
                         "description": "New notes"
                     },
+                    "list": {
+                        "type": "string",
+                        "description": "The title of a project or area to move the to-do into. Ignored if list-id is present."
+                    },
+                    "list-id": {
+                        "type": "string",
+                        "description": "The ID of a project or area to move the to-do into. Takes precedence over list"
+                    },
                     "when": {
                         "type": "string",
                         "description": "New schedule"

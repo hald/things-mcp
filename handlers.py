@@ -234,6 +234,8 @@ async def handle_tool_call(
                 notes=arguments.get("notes"),
                 when=arguments.get("when"),
                 deadline=arguments.get("deadline"),
+                list=arguments.get("list"),
+                list_id=arguments.get("list_id"),
                 tags=arguments.get("tags"),
                 completed=arguments.get("completed"),
                 canceled=arguments.get("canceled")
