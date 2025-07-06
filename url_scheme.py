@@ -1,11 +1,19 @@
 import urllib.parse
-import webbrowser
+import subprocess
 import things
 from typing import Optional, Dict, Any, Union
 
 def execute_url(url: str) -> None:
-    """Execute a Things URL by opening it in the default browser."""
-    webbrowser.open(url)
+    """Execute a Things URL without bringing Things to the foreground."""
+    try:
+        subprocess.run([
+            'osascript', '-e', 
+            f'tell application "Things3" to open location "{url}"'
+        ], check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError:
+        # Fallback to webbrowser if osascript fails
+        import webbrowser
+        webbrowser.open(url)
 
 def construct_url(command: str, params: Dict[str, Any]) -> str:
     """Construct a Things URL from command and parameters."""
