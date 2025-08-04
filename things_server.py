@@ -1,47 +1,421 @@
-from typing import Any, List, Optional, Dict
+from typing import List
 import logging
-import asyncio
-from mcp.server.models import InitializationOptions
-import mcp.types as types
-from mcp.server import NotificationOptions, Server
-import mcp.server.stdio
-
-from tools import get_tools_list
-from handlers import handle_tool_call
+import things
+from fastmcp import FastMCP
+from formatters import format_todo, format_project, format_area, format_tag
+import url_scheme
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-server = Server("things")
+# Initialize FastMCP server
+mcp = FastMCP("Things")
 
-@server.list_tools()
-async def handle_list_tools() -> list[types.Tool]:
-    """List available tools for Things integration."""
-    return get_tools_list()
+# List view tools
+@mcp.tool
+async def get_inbox() -> str:
+    """Get todos from Inbox"""
+    todos = things.inbox()
+    if not todos:
+        return "No items found"
+    formatted_todos = [format_todo(todo) for todo in todos]
+    return "\n\n---\n\n".join(formatted_todos)
 
-@server.call_tool()
-async def handle_call_tool(
-    name: str, arguments: dict | None
-) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
-    """Handle tool execution requests."""
-    return await handle_tool_call(name, arguments)
+@mcp.tool
+async def get_today() -> str:
+    """Get todos due today"""
+    todos = things.today()
+    if not todos:
+        return "No items found"
+    formatted_todos = [format_todo(todo) for todo in todos]
+    return "\n\n---\n\n".join(formatted_todos)
 
-async def main():
-    # Run the server using stdin/stdout streams
-    async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
-        await server.run(
-            read_stream,
-            write_stream,
-            InitializationOptions(
-                server_name="things",
-                server_version="0.1.0",
-                capabilities=server.get_capabilities(
-                    notification_options=NotificationOptions(),
-                    experimental_capabilities={},
-                ),
-            ),
-        )
+@mcp.tool
+async def get_upcoming() -> str:
+    """Get upcoming todos"""
+    todos = things.upcoming()
+    if not todos:
+        return "No items found"
+    formatted_todos = [format_todo(todo) for todo in todos]
+    return "\n\n---\n\n".join(formatted_todos)
+
+@mcp.tool
+async def get_anytime() -> str:
+    """Get todos from Anytime list"""
+    todos = things.anytime()
+    if not todos:
+        return "No items found"
+    formatted_todos = [format_todo(todo) for todo in todos]
+    return "\n\n---\n\n".join(formatted_todos)
+
+@mcp.tool
+async def get_someday() -> str:
+    """Get todos from Someday list"""
+    todos = things.someday()
+    if not todos:
+        return "No items found"
+    formatted_todos = [format_todo(todo) for todo in todos]
+    return "\n\n---\n\n".join(formatted_todos)
+
+@mcp.tool
+async def get_logbook(period: str = "7d", limit: int = 50) -> str:
+    """Get completed todos from Logbook, defaults to last 7 days
+    
+    Args:
+        period: Time period to look back (e.g., '3d', '1w', '2m', '1y'). Defaults to '7d'
+        limit: Maximum number of entries to return. Defaults to 50
+    """
+    todos = things.last(period, status='completed')
+    if todos and len(todos) > limit:
+        todos = todos[:limit]
+    if not todos:
+        return "No items found"
+    formatted_todos = [format_todo(todo) for todo in todos]
+    return "\n\n---\n\n".join(formatted_todos)
+
+@mcp.tool
+async def get_trash() -> str:
+    """Get trashed todos"""
+    todos = things.trash()
+    if not todos:
+        return "No items found"
+    formatted_todos = [format_todo(todo) for todo in todos]
+    return "\n\n---\n\n".join(formatted_todos)
+
+# Basic operations
+@mcp.tool
+async def get_todos(project_uuid: str = None, include_items: bool = True) -> str:
+    """Get todos from Things, optionally filtered by project
+    
+    Args:
+        project_uuid: Optional UUID of a specific project to get todos from
+        include_items: Include checklist items
+    """
+    if project_uuid:
+        project = things.get(project_uuid)
+        if not project or project.get('type') != 'project':
+            return f"Error: Invalid project UUID '{project_uuid}'"
+    
+    todos = things.todos(project=project_uuid, start=None)
+    if not todos:
+        return "No todos found"
+    
+    formatted_todos = [format_todo(todo) for todo in todos]
+    return "\n\n---\n\n".join(formatted_todos)
+
+@mcp.tool
+async def get_projects(include_items: bool = False) -> str:
+    """Get all projects from Things
+    
+    Args:
+        include_items: Include tasks within projects
+    """
+    projects = things.projects()
+    if not projects:
+        return "No projects found"
+    
+    formatted_projects = [format_project(project, include_items) for project in projects]
+    return "\n\n---\n\n".join(formatted_projects)
+
+@mcp.tool
+async def get_areas(include_items: bool = False) -> str:
+    """Get all areas from Things
+    
+    Args:
+        include_items: Include projects and tasks within areas
+    """
+    areas = things.areas()
+    if not areas:
+        return "No areas found"
+    
+    formatted_areas = [format_area(area, include_items) for area in areas]
+    return "\n\n---\n\n".join(formatted_areas)
+
+# Tag operations
+@mcp.tool
+async def get_tags(include_items: bool = False) -> str:
+    """Get all tags
+    
+    Args:
+        include_items: Include items tagged with each tag
+    """
+    tags = things.tags()
+    if not tags:
+        return "No tags found"
+    
+    formatted_tags = [format_tag(tag, include_items) for tag in tags]
+    return "\n\n---\n\n".join(formatted_tags)
+
+@mcp.tool
+async def get_tagged_items(tag: str) -> str:
+    """Get items with a specific tag
+    
+    Args:
+        tag: Tag title to filter by
+    """
+    todos = things.todos(tag=tag)
+    if not todos:
+        return f"No items found with tag '{tag}'"
+    
+    formatted_todos = [format_todo(todo) for todo in todos]
+    return "\n\n---\n\n".join(formatted_todos)
+
+# Search operations
+@mcp.tool
+async def search_todos(query: str) -> str:
+    """Search todos by title or notes
+    
+    Args:
+        query: Search term to look for in todo titles and notes
+    """
+    todos = things.search(query)
+    if not todos:
+        return f"No todos found matching '{query}'"
+    
+    formatted_todos = [format_todo(todo) for todo in todos]
+    return "\n\n---\n\n".join(formatted_todos)
+
+@mcp.tool
+async def search_advanced(
+    status: str = None,
+    start_date: str = None,
+    deadline: str = None,
+    tag: str = None,
+    area: str = None,
+    type: str = None
+) -> str:
+    """Advanced todo search with multiple filters
+    
+    Args:
+        status: Filter by todo status (incomplete, completed, canceled)
+        start_date: Filter by start date (YYYY-MM-DD)
+        deadline: Filter by deadline (YYYY-MM-DD)
+        tag: Filter by tag
+        area: Filter by area UUID
+        type: Filter by item type (to-do, project, heading)
+    """
+    search_params = {}
+    if status:
+        search_params["status"] = status
+    if start_date:
+        search_params["start_date"] = start_date
+    if deadline:
+        search_params["deadline"] = deadline
+    if tag:
+        search_params["tag"] = tag
+    if area:
+        search_params["area"] = area
+    if type:
+        search_params["type"] = type
+    
+    todos = things.todos(**search_params)
+    if not todos:
+        return "No matching todos found"
+    
+    formatted_todos = [format_todo(todo) for todo in todos]
+    return "\n\n---\n\n".join(formatted_todos)
+
+# Recent items
+@mcp.tool
+async def get_recent(period: str) -> str:
+    """Get recently created items
+    
+    Args:
+        period: Time period (e.g., '3d', '1w', '2m', '1y')
+    """
+    todos = things.last(period)
+    if not todos:
+        return f"No items found in the last {period}"
+    
+    formatted_todos = [format_todo(todo) for todo in todos]
+    return "\n\n---\n\n".join(formatted_todos)
+
+# Things URL Scheme tools
+@mcp.tool
+async def add_todo(
+    title: str,
+    notes: str = None,
+    when: str = None,
+    deadline: str = None,
+    tags: List[str] = None,
+    checklist_items: List[str] = None,
+    list_id: str = None,
+    list_title: str = None,
+    heading: str = None
+) -> str:
+    """Create a new todo in Things
+    
+    Args:
+        title: Title of the todo
+        notes: Notes for the todo
+        when: When to schedule the todo (today, tomorrow, evening, anytime, someday, or YYYY-MM-DD)
+        deadline: Deadline for the todo (YYYY-MM-DD)
+        tags: Tags to apply to the todo
+        checklist_items: Checklist items to add
+        list_id: ID of project/area to add to
+        list_title: Title of project/area to add to
+        heading: Heading to add under
+    """
+    url = url_scheme.add_todo(
+        title=title,
+        notes=notes,
+        when=when,
+        deadline=deadline,
+        tags=tags,
+        checklist_items=checklist_items,
+        list_id=list_id,
+        list_title=list_title,
+        heading=heading
+    )
+    url_scheme.execute_url(url)
+    return f"Created new todo: {title}"
+
+@mcp.tool
+async def add_project(
+    title: str,
+    notes: str = None,
+    when: str = None,
+    deadline: str = None,
+    tags: List[str] = None,
+    area_id: str = None,
+    area_title: str = None,
+    todos: List[str] = None
+) -> str:
+    """Create a new project in Things
+    
+    Args:
+        title: Title of the project
+        notes: Notes for the project
+        when: When to schedule the project
+        deadline: Deadline for the project
+        tags: Tags to apply to the project
+        area_id: ID of area to add to
+        area_title: Title of area to add to
+        todos: Initial todos to create in the project
+    """
+    url = url_scheme.add_project(
+        title=title,
+        notes=notes,
+        when=when,
+        deadline=deadline,
+        tags=tags,
+        area_id=area_id,
+        area_title=area_title,
+        todos=todos
+    )
+    url_scheme.execute_url(url)
+    return f"Created new project: {title}"
+
+@mcp.tool
+async def update_todo(
+    id: str,
+    title: str = None,
+    notes: str = None,
+    when: str = None,
+    deadline: str = None,
+    tags: List[str] = None,
+    completed: bool = None,
+    canceled: bool = None,
+    list: str = None,
+    list_id: str = None
+) -> str:
+    """Update an existing todo in Things
+    
+    Args:
+        id: ID of the todo to update
+        title: New title
+        notes: New notes
+        when: New schedule
+        deadline: New deadline
+        tags: New tags
+        completed: Mark as completed
+        canceled: Mark as canceled
+        list: The title of a project or area to move the to-do into
+        list_id: The ID of a project or area to move the to-do into (takes precedence over list)
+    """
+    url = url_scheme.update_todo(
+        id=id,
+        title=title,
+        notes=notes,
+        when=when,
+        deadline=deadline,
+        tags=tags,
+        completed=completed,
+        canceled=canceled,
+        list=list,
+        list_id=list_id
+    )
+    url_scheme.execute_url(url)
+    return f"Updated todo with ID: {id}"
+
+@mcp.tool
+async def update_project(
+    id: str,
+    title: str = None,
+    notes: str = None,
+    when: str = None,
+    deadline: str = None,
+    tags: List[str] = None,
+    completed: bool = None,
+    canceled: bool = None
+) -> str:
+    """Update an existing project in Things
+    
+    Args:
+        id: ID of the project to update
+        title: New title
+        notes: New notes
+        when: New schedule
+        deadline: New deadline
+        tags: New tags
+        completed: Mark as completed
+        canceled: Mark as canceled
+    """
+    url = url_scheme.update_project(
+        id=id,
+        title=title,
+        notes=notes,
+        when=when,
+        deadline=deadline,
+        tags=tags,
+        completed=completed,
+        canceled=canceled
+    )
+    url_scheme.execute_url(url)
+    return f"Updated project with ID: {id}"
+
+@mcp.tool
+async def show_item(
+    id: str,
+    query: str = None,
+    filter_tags: List[str] = None
+) -> str:
+    """Show a specific item or list in Things
+    
+    Args:
+        id: ID of item to show, or one of: inbox, today, upcoming, anytime, someday, logbook
+        query: Optional query to filter by
+        filter_tags: Optional tags to filter by
+    """
+    url = url_scheme.show(
+        id=id,
+        query=query,
+        filter_tags=filter_tags
+    )
+    url_scheme.execute_url(url)
+    return f"Showing item: {id}"
+
+@mcp.tool
+async def search_items(query: str) -> str:
+    """Search for items in Things
+    
+    Args:
+        query: Search query
+    """
+    url = url_scheme.search(query)
+    url_scheme.execute_url(url)
+    return f"Searching for '{query}'"
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    mcp.run()

@@ -2,7 +2,7 @@
 
 This [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) server lets you use Claude Desktop to interact with your task management data in [Things app](https://culturedcode.com/things). You can ask Claude to create tasks, analyze projects, help manage priorities, and more.
 
-This server leverages the [Things.py](https://github.com/thingsapi/things.py) library and the [Things URL Scheme](https://culturedcode.com/things/help/url-scheme/). 
+This server leverages the [Things.py](https://github.com/thingsapi/things.py) library and the [Things URL Scheme](https://culturedcode.com/things/help/url-scheme/). Built with [FastMCP](https://github.com/jlowin/fastmcp) for a clean, pythonic implementation. 
 
 <a href="https://glama.ai/mcp/servers/t9cgixg2ah"><img width="380" height="200" src="https://glama.ai/mcp/servers/t9cgixg2ah/badge" alt="Things Server MCP server" /></a>
 
@@ -15,55 +15,140 @@ This server leverages the [Things.py](https://github.com/thingsapi/things.py) li
 - Recent items tracking
 - Detailed item information including checklists
 - Support for nested data (projects within areas, todos within projects)
+- Comprehensive unit test suite
 
-## Installation (for Claude Desktop)
+## Installation
 
-1. Prerequisites 
-* Python 3.12+
-* Claude Desktop
-* Things 3 ("Enable Things URLs" must be turned on in Settings -> General)
+### Prerequisites
+- macOS (Things 3 is Mac-only)
+- Python 3.12 or higher
+- Claude Desktop or Claude Code
+- Things 3 app with "Enable Things URLs" turned on (Settings → General)
 
-2. Install uv if you haven't already:
+### Step 1: Install uv (Python package manager)
+
+First, make sure you have Homebrew installed:
 ```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
+# Check if Homebrew is installed
+brew --version
+
+# If not installed, install Homebrew:
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 ```
-Resart your terminal afterwards.
 
-3. Clone this repository:
+Then install uv:
 ```bash
+brew install uv
+```
+
+### Step 2: Clone the repository
+
+Choose a location where you want to install Things MCP. For example, to install in your home directory:
+
+```bash
+cd ~
 git clone https://github.com/hald/things-mcp
-```
-4. Install the required Python packages:
-```bash
 cd things-mcp
-uv venv
-uv pip install -r pyproject.toml
 ```
-5. Edit the Claude Desktop configuration file:
+
+**Important**: Remember this location! You'll need the full path. You can get it by running:
 ```bash
-code ~/Library/Application\ Support/Claude/claude_desktop_config.json
+pwd
 ```
-Add the Things server to the mcpServers key to the configuration file (be sure to update the path to the folder where you installed these files):
+This will show something like: `/Users/yourusername/things-mcp`
+
+### Step 3: Install dependencies
+
+```bash
+uv sync
+```
+
+### Step 4: Configure Claude
+
+#### For Claude Desktop:
+
+1. Open Claude Desktop
+2. Go to **Claude → Settings → Developer → Edit Config**
+3. Add the Things server to the `mcpServers` section:
+
 ```json
 {
-    "mcpServers": {
-        "things": {
-            "command": "uv",
-            "args": [
-                "--directory",
-                "/ABSOLUTE/PATH/TO/PARENT/FOLDER/things-mcp",
-                "run",
-                "things_server.py"
-            ]
-        }
+  "mcpServers": {
+    "things": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "/Users/yourusername/things-mcp",
+        "run",
+        "things_server.py"
+      ]
     }
+  }
 }
 ```
-Restart the Claude Desktop app.
+
+**Replace `/Users/yourusername/things-mcp` with your actual path from Step 2!**
+
+4. Save the file and restart Claude Desktop
+
+#### For Claude Code:
+
+In your terminal, run:
+```bash
+claude mcp add-json things '{"command":"uv","args":["--directory","/path/to/things-mcp","run","things_server.py"]}'
+```
+
+**Replace `/path/to/things-mcp` with your actual path from Step 2!**
+
+To make it available globally (across all projects), add `-s user`:
+```bash
+claude mcp add-json -s user things '{"command":"uv","args":["--directory","/path/to/things-mcp","run","things_server.py"]}'
+```
+
+### Step 5: Verify it's working
+
+After restarting Claude:
+- You should see an MCP indicator in the bottom-right corner
+- Try asking: "What's in my Things inbox?"
+
+### Troubleshooting
+
+If it's not working:
+
+1. **Make sure Things 3 is installed and has been opened at least once**
+   - The Things database needs to exist for the server to work
+
+2. **Check that "Enable Things URLs" is turned on**
+   - Open Things → Settings → General → Enable Things URLs
+
+3. **Verify the path in your configuration matches where you cloned the repository**
+   - The path must be absolute (starting with `/`)
+   - Run `pwd` in the things-mcp directory to get the correct path
+
+4. **Check Claude's logs for errors:**
+   ```bash
+   tail -n 20 -f ~/Library/Logs/Claude/mcp*.log
+   ```
+
+5. **Common issues:**
+   - "Could not attach to MCP" - Usually means the path is wrong
+   - "spawn uv ENOENT" - Make sure uv was installed with Homebrew (`brew install uv`)
+   - "No module named 'things'" - Run `uv sync` in the things-mcp directory
+   - "Command not found: uv" - Install uv with Homebrew: `brew install uv`
+
+### Updating
+
+To update to the latest version:
+```bash
+cd ~/things-mcp  # or wherever you installed it
+git pull
+uv sync
+```
+Then restart Claude.
 
 ### Sample Usage with Claude Desktop
 * "What's on my todo list today?"
-* "Create a todo to pack for my beach vacation next week, include a packling checklist."
+* "Create a todo to pack for my beach vacation next week, include a packing checklist."
 * "Evaluate my current todos using the Eisenhower matrix."
 * "Help me conduct a GTD-style weekly review using Things."
 
@@ -99,6 +184,14 @@ Restart the Claude Desktop app.
 #### Time-based Operations
 - `get-recent` - Get recently created items
 
+#### Things URL Scheme Operations
+- `add-todo` - Create a new todo
+- `add-project` - Create a new project
+- `update-todo` - Update an existing todo
+- `update-project` - Update an existing project
+- `show-item` - Show a specific item or list in Things
+- `search-items` - Search for items in Things
+
 ## Tool Parameters
 
 ### get-todos
@@ -118,6 +211,44 @@ Restart the Claude Desktop app.
 
 ### get-recent
 - `period` - Time period (e.g., '3d', '1w', '2m', '1y')
+
+## Development
+
+### Running Tests
+
+The project includes a comprehensive unit test suite for the URL scheme and formatter modules.
+
+```bash
+# Install test dependencies
+uv sync --extra test
+
+# Run all tests
+uv run pytest
+
+# Run tests with verbose output
+uv run pytest -v
+
+# Run a specific test file
+uv run pytest tests/test_url_scheme.py
+
+# Run tests matching a pattern
+uv run pytest -k "test_add_todo"
+```
+
+### Project Structure
+
+```
+things-mcp/
+├── things_server.py     # Main MCP server implementation
+├── url_scheme.py        # Things URL scheme implementation
+├── formatters.py        # Data formatting utilities
+├── tests/               # Unit tests
+│   ├── conftest.py      # Test fixtures and configuration
+│   ├── test_url_scheme.py
+│   └── test_formatters.py
+├── pyproject.toml       # Project dependencies and pytest config
+└── run.sh               # Convenience runner script
+```
 
 
 ## Troubleshooting
