@@ -49,6 +49,7 @@ def add_todo(title: str, notes: Optional[str] = None, when: Optional[str] = None
              deadline: Optional[str] = None, tags: Optional[list[str]] = None,
              checklist_items: Optional[list[str]] = None, list_id: Optional[str] = None,
              list_title: Optional[str] = None, heading: Optional[str] = None,
+             heading_id: Optional[str] = None,
              completed: Optional[bool] = None) -> str:
     """Construct URL to add a new todo."""
     params = {
@@ -60,6 +61,7 @@ def add_todo(title: str, notes: Optional[str] = None, when: Optional[str] = None
         'list-id': list_id,
         'list': list_title,
         'heading': heading,
+        'heading-id': heading_id,
         'completed': completed
     }
     
@@ -94,7 +96,8 @@ def update_todo(id: str, title: Optional[str] = None, notes: Optional[str] = Non
                 when: Optional[str] = None, deadline: Optional[str] = None,
                 tags: Optional[list[str]] = None, completed: Optional[bool] = None,
                 canceled: Optional[bool] = None, list: Optional[str] = None,
-                list_id: Optional[str] = None) -> str:
+                list_id: Optional[str] = None, heading: Optional[str] = None,
+                heading_id: Optional[str] = None) -> str:
     """Construct URL to update an existing todo.
     
     Note: list_id takes precedence over list if both are provided.
@@ -109,7 +112,9 @@ def update_todo(id: str, title: Optional[str] = None, notes: Optional[str] = Non
         'completed': completed,
         'canceled': canceled,
         'list': list,
-        'list-id': list_id
+        'list-id': list_id,
+        'heading': heading,
+        'heading-id': heading_id
     }
     return construct_url('update', {k: v for k, v in params.items() if v is not None})
 

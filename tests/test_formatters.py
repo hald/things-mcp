@@ -90,6 +90,22 @@ class TestFormatTodo:
         
         assert "Area: Work Area" in result
         mock_get.assert_called_once_with('area-uuid')
+
+    @patch('things.get')
+    def test_format_todo_with_heading(self, mock_get):
+        """Test formatting todo with heading reference."""
+        mock_get.return_value = {'title': 'Feature Heading'}
+
+        todo = {
+            'title': 'Todo in Heading',
+            'uuid': 'heading-todo-uuid',
+            'type': 'to-do',
+            'heading': 'heading-uuid'
+        }
+        result = format_todo(todo)
+
+        assert "Heading: Feature Heading" in result
+        mock_get.assert_called_once_with('heading-uuid')
     
     def test_format_todo_with_tags(self):
         """Test formatting todo with tags."""
@@ -139,7 +155,8 @@ class TestFormatTodo:
         """Test formatting todo with all fields using fixture."""
         mock_get.side_effect = lambda uuid: {
             'project-uuid': {'title': 'Mock Project'},
-            'area-uuid': {'title': 'Mock Area'}
+            'area-uuid': {'title': 'Mock Area'},
+            'heading-uuid': {'title': 'Mock Heading'}
         }.get(uuid)
         
         result = format_todo(mock_todo)
@@ -154,6 +171,7 @@ class TestFormatTodo:
         assert "Notes: Test notes" in result
         assert "Project: Mock Project" in result
         assert "Area: Mock Area" in result
+        assert "Heading: Mock Heading" in result
         assert "Tags: work, urgent" in result
         assert "✓ First item" in result
         assert "□ Second item" in result

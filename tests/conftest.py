@@ -19,7 +19,8 @@ def mock_todo():
             {'title': 'Second item', 'status': 'open'}
         ],
         'project': 'project-uuid',
-        'area': 'area-uuid'
+        'area': 'area-uuid',
+        'heading': 'heading-uuid'
     }
 
 @pytest.fixture
