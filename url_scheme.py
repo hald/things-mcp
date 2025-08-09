@@ -96,9 +96,17 @@ def add_project(title: str, notes: Optional[str] = None, when: Optional[str] = N
 def add_heading(project_id: str, title: str) -> str:
     """Construct URL to add a new heading to a project."""
     data = [{
-        'type': 'heading',
-        'attributes': {'title': title},
-        'list-id': project_id
+        'type': 'project',
+        'operation': 'update',
+        'id': project_id,
+        'attributes': {
+            'items': [
+                {
+                    'type': 'heading',
+                    'attributes': {'title': title}
+                }
+            ]
+        }
     }]
     params = {
         'data': json.dumps(data, separators=(',', ':')),

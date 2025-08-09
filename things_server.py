@@ -1,6 +1,5 @@
 from typing import List
 import logging
-import time
 import things
 from fastmcp import FastMCP
 from formatters import format_todo, format_project, format_area, format_tag
@@ -316,16 +315,13 @@ async def add_heading(project_id: str, title: str) -> str:
     """Create a new heading in a project"""
     url = url_scheme.add_heading(project_id=project_id, title=title)
     url_scheme.execute_url(url)
-    attempts = 20
-    delay = 0.1
-    for _ in range(attempts):
-        headings = things.tasks(project=project_id, type='heading')
+    headings = things.tasks(project=project_id, type='heading')
+    if headings:
         matches = [h for h in headings if h.get('title') == title]
         if matches:
             new_heading = max(matches, key=lambda h: h.get('index', 0))
             return f"Created heading '{title}' with ID: {new_heading['uuid']}"
-        time.sleep(delay)
-    return f"Heading '{title}' created but could not verify its ID"
+    return f"Created heading: {title}"
 
 @mcp.tool
 async def update_todo(
