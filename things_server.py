@@ -311,6 +311,19 @@ async def add_project(
     return f"Created new project: {title}"
 
 @mcp.tool
+async def add_heading(project_id: str, title: str) -> str:
+    """Create a new heading in a project"""
+    url = url_scheme.add_heading(project_id=project_id, title=title)
+    url_scheme.execute_url(url)
+    headings = things.tasks(project=project_id, type='heading')
+    if headings:
+        matches = [h for h in headings if h.get('title') == title]
+        if matches:
+            new_heading = max(matches, key=lambda h: h.get('index', 0))
+            return f"Created heading '{title}' with ID: {new_heading['uuid']}"
+    return f"Created heading: {title}"
+
+@mcp.tool
 async def update_todo(
     id: str,
     title: str = None,

@@ -2,6 +2,7 @@ import urllib.parse
 import webbrowser
 import subprocess
 import things
+import json
 from typing import Optional, Dict, Any, Union
 
 def execute_url(url: str) -> None:
@@ -91,6 +92,27 @@ def add_project(title: str, notes: Optional[str] = None, when: Optional[str] = N
         params['tags'] = ','.join(tags)
         
     return construct_url('add-project', {k: v for k, v in params.items() if v is not None})
+
+def add_heading(project_id: str, title: str) -> str:
+    """Construct URL to add a new heading to a project."""
+    data = [{
+        'type': 'project',
+        'operation': 'update',
+        'id': project_id,
+        'attributes': {
+            'items': [
+                {
+                    'type': 'heading',
+                    'attributes': {'title': title}
+                }
+            ]
+        }
+    }]
+    params = {
+        'data': json.dumps(data, separators=(',', ':')),
+        'auth-token': things.token()
+    }
+    return construct_url('json', params)
 
 def update_todo(id: str, title: Optional[str] = None, notes: Optional[str] = None,
                 when: Optional[str] = None, deadline: Optional[str] = None,

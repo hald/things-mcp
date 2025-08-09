@@ -187,6 +187,7 @@ Then restart Claude.
 #### Things URL Scheme Operations
 - `add-todo` - Create a new todo
 - `add-project` - Create a new project
+- `add-heading` - Create a new heading within a project
 - `update-todo` - Update an existing todo
 - `update-project` - Update an existing project
 - `show-item` - Show a specific item or list in Things
@@ -211,6 +212,10 @@ Then restart Claude.
 
 ### get-recent
 - `period` - Time period (e.g., '3d', '1w', '2m', '1y')
+
+### add-heading
+- `project_id` - ID of the project to add the heading to
+- `title` - Heading title
 
 ## Development
 
