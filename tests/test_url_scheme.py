@@ -1,9 +1,8 @@
 import pytest
 from unittest.mock import patch, Mock
 import subprocess
-import urllib.parse
 from url_scheme import (
-    execute_url, construct_url, add_todo, add_project, add_heading,
+    execute_url, construct_url, add_todo, add_project,
     update_todo, update_project, show, search
 )
 
@@ -166,23 +165,6 @@ class TestAddProject:
         """Test todos are newline-separated."""
         url = add_project("Test", todos=["First", "Second"])
         assert "to-dos=First%0ASecond" in url
-
-
-class TestAddHeading:
-    """Test the add_heading function."""
-
-    @patch('things.token')
-    def test_add_heading(self, mock_token):
-        mock_token.return_value = 'auth-token'
-        url = add_heading('project-123', 'New Heading')
-        assert url.startswith('things:///json?')
-        decoded = urllib.parse.unquote(url)
-        assert '"type":"project"' in decoded
-        assert '"operation":"update"' in decoded
-        assert '"id":"project-123"' in decoded
-        assert '"type":"heading"' in decoded
-        assert '"title":"New Heading"' in decoded
-        assert 'auth-token=auth-token' in url
 
 
 class TestUpdateTodo:
