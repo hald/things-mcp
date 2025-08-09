@@ -177,11 +177,9 @@ class TestAddHeading:
         url = add_heading('project-123', 'New Heading')
         assert url.startswith('things:///json?')
         decoded = urllib.parse.unquote(url)
-        assert '"type":"project"' in decoded
-        assert '"operation":"update"' in decoded
-        assert '"id":"project-123"' in decoded
         assert '"type":"heading"' in decoded
         assert '"title":"New Heading"' in decoded
+        assert '"list-id":"project-123"' in decoded
         assert 'auth-token=auth-token' in url
 
 
