@@ -42,6 +42,15 @@ def format_todo(todo: dict) -> str:
                 todo_text += f"\nProject: {project['title']}"
         except Exception:
             pass
+
+    # Add heading info if present
+    if todo.get('heading'):
+        try:
+            heading = things.get(todo['heading'])
+            if heading:
+                todo_text += f"\nHeading: {heading['title']}"
+        except Exception:
+            pass
             
     # Add area info if present
     if todo.get('area'):

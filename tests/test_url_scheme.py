@@ -104,6 +104,7 @@ class TestAddTodo:
             list_id="inbox-id",
             list_title="Inbox",
             heading="Important",
+            heading_id="heading-uuid",
             completed=False
         )
         
@@ -116,6 +117,7 @@ class TestAddTodo:
         assert "list-id=inbox-id" in url
         assert "list=Inbox" in url
         assert "heading=Important" in url
+        assert "heading-id=heading-uuid" in url
         assert "completed=false" in url
     
     def test_add_todo_tags_handling(self):
@@ -190,7 +192,9 @@ class TestUpdateTodo:
             completed=True,
             canceled=False,
             list="Inbox",
-            list_id="inbox-id"
+            list_id="inbox-id",
+            heading="New Heading",
+            heading_id="heading-uuid"
         )
         
         assert "id=todo-123" in url
@@ -203,6 +207,8 @@ class TestUpdateTodo:
         assert "canceled=false" in url
         assert "list=Inbox" in url
         assert "list-id=inbox-id" in url
+        assert "heading=New%20Heading" in url
+        assert "heading-id=heading-uuid" in url
 
 
 class TestUpdateProject:
