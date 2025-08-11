@@ -242,7 +242,8 @@ async def add_todo(
     checklist_items: List[str] = None,
     list_id: str = None,
     list_title: str = None,
-    heading: str = None
+    heading: str = None,
+    heading_id: str = None
 ) -> str:
     """Create a new todo in Things
     
@@ -255,7 +256,8 @@ async def add_todo(
         checklist_items: Checklist items to add
         list_id: ID of project/area to add to
         list_title: Title of project/area to add to
-        heading: Heading to add under
+        heading: Heading title to add under
+        heading_id: Heading ID to add under (takes precedence over heading)
     """
     url = url_scheme.add_todo(
         title=title,
@@ -266,7 +268,8 @@ async def add_todo(
         checklist_items=checklist_items,
         list_id=list_id,
         list_title=list_title,
-        heading=heading
+        heading=heading,
+        heading_id=heading_id
     )
     url_scheme.execute_url(url)
     return f"Created new todo: {title}"
@@ -318,7 +321,9 @@ async def update_todo(
     completed: bool = None,
     canceled: bool = None,
     list: str = None,
-    list_id: str = None
+    list_id: str = None,
+    heading: str = None,
+    heading_id: str = None
 ) -> str:
     """Update an existing todo in Things
     
@@ -333,6 +338,8 @@ async def update_todo(
         canceled: Mark as canceled
         list: The title of a project or area to move the to-do into
         list_id: The ID of a project or area to move the to-do into (takes precedence over list)
+        heading: The heading title to move the to-do under
+        heading_id: The heading ID to move the to-do under (takes precedence over heading)
     """
     url = url_scheme.update_todo(
         id=id,
@@ -344,7 +351,9 @@ async def update_todo(
         completed=completed,
         canceled=canceled,
         list=list,
-        list_id=list_id
+        list_id=list_id,
+        heading=heading,
+        heading_id=heading_id
     )
     url_scheme.execute_url(url)
     return f"Updated todo with ID: {id}"
