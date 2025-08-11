@@ -88,6 +88,13 @@ def format_project(project: dict, include_items: bool = False) -> str:
             
     if project.get('notes'):
         project_text += f"\nNotes: {project['notes']}"
+    
+    # Always show headings for projects
+    headings = things.tasks(type='heading', project=project['uuid'])
+    if headings:
+        project_text += "\n\nHeadings:"
+        for heading in headings:
+            project_text += f"\n- {heading['title']}"
         
     if include_items:
         todos = things.todos(project=project['uuid'])
@@ -135,3 +142,40 @@ def format_tag(tag: dict, include_items: bool = False) -> str:
                 tag_text += f"\n- {todo['title']}"
     
     return tag_text
+
+def format_heading(heading: dict, include_items: bool = False) -> str:
+    """Helper function to format a single heading."""
+    heading_text = f"Title: {heading['title']}\nUUID: {heading['uuid']}"
+    heading_text += f"\nType: heading"
+    
+    # Add project info if present
+    if heading.get('project'):
+        if heading.get('project_title'):
+            heading_text += f"\nProject: {heading['project_title']}"
+        else:
+            try:
+                project = things.get(heading['project'])
+                if project:
+                    heading_text += f"\nProject: {project['title']}"
+            except Exception:
+                pass
+    
+    # Add dates
+    if heading.get('created'):
+        heading_text += f"\nCreated: {heading['created']}"
+    if heading.get('modified'):
+        heading_text += f"\nModified: {heading['modified']}"
+        
+    # Add notes if present
+    if heading.get('notes'):
+        heading_text += f"\nNotes: {heading['notes']}"
+        
+    if include_items:
+        # Get todos under this heading
+        todos = things.todos(heading=heading['uuid'])
+        if todos:
+            heading_text += "\n\nTasks under heading:"
+            for todo in todos:
+                heading_text += f"\n- {todo['title']}"
+    
+    return heading_text

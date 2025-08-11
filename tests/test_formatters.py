@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import patch
-from formatters import format_todo, format_project, format_area, format_tag
+from formatters import format_todo, format_project, format_area, format_tag, format_heading
 
 
 class TestFormatTodo:
@@ -180,8 +180,11 @@ class TestFormatTodo:
 class TestFormatProject:
     """Test the format_project function."""
     
-    def test_format_project_minimal(self):
+    @patch('things.tasks')
+    def test_format_project_minimal(self, mock_tasks):
         """Test formatting project with minimal fields."""
+        mock_tasks.return_value = []
+        
         project = {
             'title': 'Simple Project',
             'uuid': 'simple-project-uuid'
@@ -191,10 +194,12 @@ class TestFormatProject:
         assert "Title: Simple Project" in result
         assert "UUID: simple-project-uuid" in result
     
+    @patch('things.tasks')
     @patch('things.get')
-    def test_format_project_with_area(self, mock_get):
+    def test_format_project_with_area(self, mock_get, mock_tasks):
         """Test formatting project with area."""
         mock_get.return_value = {'title': 'Work Area'}
+        mock_tasks.return_value = []
         
         project = {
             'title': 'Project in Area',
@@ -205,8 +210,11 @@ class TestFormatProject:
         
         assert "Area: Work Area" in result
     
-    def test_format_project_with_notes(self):
+    @patch('things.tasks')
+    def test_format_project_with_notes(self, mock_tasks):
         """Test formatting project with notes."""
+        mock_tasks.return_value = []
+        
         project = {
             'title': 'Project with Notes',
             'uuid': 'notes-project-uuid',
@@ -216,9 +224,30 @@ class TestFormatProject:
         
         assert "Notes: Project description" in result
     
+    @patch('things.tasks')
+    def test_format_project_with_headings(self, mock_tasks):
+        """Test formatting project with headings."""
+        mock_tasks.return_value = [
+            {'title': 'Phase 1', 'uuid': 'heading1-uuid'},
+            {'title': 'Phase 2', 'uuid': 'heading2-uuid'}
+        ]
+        
+        project = {
+            'title': 'Project with Headings',
+            'uuid': 'headings-project-uuid'
+        }
+        result = format_project(project)
+        
+        assert "Headings:" in result
+        assert "- Phase 1" in result
+        assert "- Phase 2" in result
+        mock_tasks.assert_called_once_with(type='heading', project='headings-project-uuid')
+    
     @patch('things.todos')
-    def test_format_project_with_items(self, mock_todos):
+    @patch('things.tasks')
+    def test_format_project_with_items(self, mock_tasks, mock_todos):
         """Test formatting project with include_items=True."""
+        mock_tasks.return_value = []
         mock_todos.return_value = [
             {'title': 'Task 1'},
             {'title': 'Task 2'},
@@ -237,8 +266,11 @@ class TestFormatProject:
         assert "- Task 3" in result
         mock_todos.assert_called_once_with(project='tasks-project-uuid')
     
-    def test_format_project_without_items(self):
+    @patch('things.tasks')
+    def test_format_project_without_items(self, mock_tasks):
         """Test formatting project with include_items=False."""
+        mock_tasks.return_value = []
+        
         project = {
             'title': 'Project',
             'uuid': 'project-uuid'
@@ -409,9 +441,11 @@ class TestEdgeCases:
         assert "✓" not in result
     
     @patch('things.todos')
-    def test_format_project_with_no_todos(self, mock_todos):
+    @patch('things.tasks')
+    def test_format_project_with_no_todos(self, mock_tasks, mock_todos):
         """Test formatting project with no todos."""
         mock_todos.return_value = []
+        mock_tasks.return_value = []
         
         project = {
             'title': 'Empty Project',
@@ -421,3 +455,95 @@ class TestEdgeCases:
         
         # Should still include the Tasks section, just empty
         assert "Tasks:" not in result
+
+
+class TestFormatHeading:
+    """Test the format_heading function."""
+    
+    def test_format_heading_minimal(self):
+        """Test formatting heading with minimal fields."""
+        heading = {
+            'title': 'Important Tasks',
+            'uuid': 'heading-uuid',
+            'type': 'heading'
+        }
+        result = format_heading(heading)
+        
+        assert "Title: Important Tasks" in result
+        assert "UUID: heading-uuid" in result
+        assert "Type: heading" in result
+    
+    def test_format_heading_with_project(self):
+        """Test formatting heading with project info."""
+        heading = {
+            'title': 'Development',
+            'uuid': 'dev-heading-uuid',
+            'type': 'heading',
+            'project': 'project-uuid',
+            'project_title': 'Main Project'
+        }
+        result = format_heading(heading)
+        
+        assert "Project: Main Project" in result
+    
+    @patch('things.get')
+    def test_format_heading_with_project_lookup(self, mock_get):
+        """Test formatting heading with project lookup."""
+        mock_get.return_value = {'title': 'Looked Up Project'}
+        
+        heading = {
+            'title': 'Testing',
+            'uuid': 'test-heading-uuid',
+            'type': 'heading',
+            'project': 'project-uuid'
+        }
+        result = format_heading(heading)
+        
+        assert "Project: Looked Up Project" in result
+        mock_get.assert_called_once_with('project-uuid')
+    
+    def test_format_heading_with_dates(self):
+        """Test formatting heading with dates."""
+        heading = {
+            'title': 'Planning',
+            'uuid': 'plan-heading-uuid',
+            'type': 'heading',
+            'created': '2024-01-15 10:00:00',
+            'modified': '2024-01-20 15:30:00'
+        }
+        result = format_heading(heading)
+        
+        assert "Created: 2024-01-15 10:00:00" in result
+        assert "Modified: 2024-01-20 15:30:00" in result
+    
+    def test_format_heading_with_notes(self):
+        """Test formatting heading with notes."""
+        heading = {
+            'title': 'Design Phase',
+            'uuid': 'design-heading-uuid',
+            'type': 'heading',
+            'notes': 'This contains all design-related tasks'
+        }
+        result = format_heading(heading)
+        
+        assert "Notes: This contains all design-related tasks" in result
+    
+    @patch('things.todos')
+    def test_format_heading_with_items(self, mock_todos):
+        """Test formatting heading with todo items."""
+        mock_todos.return_value = [
+            {'title': 'Task 1'},
+            {'title': 'Task 2'}
+        ]
+        
+        heading = {
+            'title': 'Sprint 1',
+            'uuid': 'sprint-heading-uuid',
+            'type': 'heading'
+        }
+        result = format_heading(heading, include_items=True)
+        
+        assert "Tasks under heading:" in result
+        assert "- Task 1" in result
+        assert "- Task 2" in result
+        mock_todos.assert_called_once_with(heading='sprint-heading-uuid')

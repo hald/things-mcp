@@ -161,6 +161,28 @@ async def get_tagged_items(tag: str) -> str:
     formatted_todos = [format_todo(todo) for todo in todos]
     return "\n\n---\n\n".join(formatted_todos)
 
+@mcp.tool
+async def get_headings(project_uuid: str = None) -> str:
+    """Get headings from Things
+    
+    Args:
+        project_uuid: Optional UUID of a specific project to get headings from
+    """
+    if project_uuid:
+        project = things.get(project_uuid)
+        if not project or project.get('type') != 'project':
+            return f"Error: Invalid project UUID '{project_uuid}'"
+        headings = things.tasks(type='heading', project=project_uuid)
+    else:
+        headings = things.tasks(type='heading')
+    
+    if not headings:
+        return "No headings found"
+    
+    from formatters import format_heading
+    formatted_headings = [format_heading(heading) for heading in headings]
+    return "\n\n---\n\n".join(formatted_headings)
+
 # Search operations
 @mcp.tool
 async def search_todos(query: str) -> str:
