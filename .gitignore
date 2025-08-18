@@ -12,4 +12,8 @@ wheels/
 # Github
 .github/
 
+# DXT build artifacts
+/server/
+*.dxt
+
 .DS_Store

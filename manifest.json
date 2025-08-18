@@ -1,0 +1,123 @@
+{
+  "dxt_version": "0.1",
+  "name": "things-mcp",
+  "display_name": "Things 3 MCP Server",
+  "version": "0.4.0",
+  "description": "Model Context Protocol server for Things 3 task management app",
+  "long_description": "This extension provides comprehensive task management capabilities through the Things 3 app. It allows you to view, create, update, and search todos, projects, areas, and tags. Built with FastMCP and the Things.py library for seamless integration with your task management workflow.",
+  "author": {
+    "name": "Things MCP",
+    "email": "support@example.com",
+    "url": "https://github.com/hald/things-mcp"
+  },
+  "server": {
+    "type": "python",
+    "entry_point": "server/main.py",
+    "mcp_config": {
+      "command": "python",
+      "args": ["${__dirname}/server/main.py"],
+      "env": {
+        "PYTHONPATH": "${__dirname}/server/lib"
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "get_inbox",
+      "description": "Get todos from Inbox"
+    },
+    {
+      "name": "get_today",
+      "description": "Get todos due today"
+    },
+    {
+      "name": "get_upcoming",
+      "description": "Get upcoming todos"
+    },
+    {
+      "name": "get_anytime",
+      "description": "Get todos from Anytime list"
+    },
+    {
+      "name": "get_someday",
+      "description": "Get todos from Someday list"
+    },
+    {
+      "name": "get_logbook",
+      "description": "Get completed todos from Logbook"
+    },
+    {
+      "name": "get_trash",
+      "description": "Get trashed todos"
+    },
+    {
+      "name": "get_todos",
+      "description": "Get todos from Things, optionally filtered by project"
+    },
+    {
+      "name": "get_projects",
+      "description": "Get all projects from Things"
+    },
+    {
+      "name": "get_areas",
+      "description": "Get all areas from Things"
+    },
+    {
+      "name": "get_tags",
+      "description": "Get all tags"
+    },
+    {
+      "name": "get_tagged_items",
+      "description": "Get items with a specific tag"
+    },
+    {
+      "name": "get_headings",
+      "description": "Get headings from Things"
+    },
+    {
+      "name": "search_todos",
+      "description": "Search todos by title or notes"
+    },
+    {
+      "name": "search_advanced",
+      "description": "Advanced search with multiple filters"
+    },
+    {
+      "name": "get_recent",
+      "description": "Get recently created items"
+    },
+    {
+      "name": "add_todo",
+      "description": "Add a new todo to Things"
+    },
+    {
+      "name": "add_project",
+      "description": "Add a new project to Things"
+    },
+    {
+      "name": "update_todo",
+      "description": "Update an existing todo"
+    },
+    {
+      "name": "update_project",
+      "description": "Update an existing project"
+    },
+    {
+      "name": "show_item",
+      "description": "Show a specific item in Things app"
+    },
+    {
+      "name": "search_items",
+      "description": "Search for items in Things"
+    }
+  ],
+  "keywords": ["things", "todo", "task", "project", "productivity", "macos"],
+  "license": "MIT",
+  "compatibility": {
+    "claude_desktop": ">=0.10.0",
+    "platforms": ["darwin"],
+    "runtimes": {
+      "python": ">=3.8.0 <4"
+    }
+  }
+}

@@ -21,11 +21,27 @@ This server leverages the [Things.py](https://github.com/thingsapi/things.py) li
 
 ### Prerequisites
 - macOS (Things 3 is Mac-only)
-- Python 3.12 or higher
 - Claude Desktop or Claude Code
 - Things 3 app with "Enable Things URLs" turned on (Settings → General)
 
-### Step 1: Install uv (Python package manager)
+### Option 1: DXT Installation (Recommended - One-Click Install)
+
+Desktop Extensions (.dxt) provide the easiest way to install MCP servers with all dependencies pre-bundled.
+
+1. Download the latest `things-mcp-0.4.0.dxt` file from the [releases page](https://github.com/hald/things-mcp/releases)
+2. Double-click the `.dxt` file to install it in Claude Desktop
+3. The extension will be automatically configured and ready to use!
+
+That's it! The DXT package includes all Python dependencies and handles the configuration automatically.
+
+### Option 2: Manual Installation (Advanced)
+
+For developers or users who prefer manual setup:
+
+#### Prerequisites for Manual Installation
+- Python 3.12 or higher
+
+#### Step 1: Install uv (Python package manager)
 
 First, make sure you have Homebrew installed:
 ```bash
@@ -41,7 +57,7 @@ Then install uv:
 brew install uv
 ```
 
-### Step 2: Clone the repository
+#### Step 2: Clone the repository
 
 Choose a location where you want to install Things MCP. For example, to install in your home directory:
 
@@ -57,13 +73,13 @@ pwd
 ```
 This will show something like: `/Users/yourusername/things-mcp`
 
-### Step 3: Install dependencies
+#### Step 3: Install dependencies
 
 ```bash
 uv sync
 ```
 
-### Step 4: Configure Claude
+#### Step 4: Configure Claude
 
 #### For Claude Desktop:
 
@@ -242,14 +258,43 @@ things-mcp/
 ├── things_server.py     # Main MCP server implementation
 ├── url_scheme.py        # Things URL scheme implementation
 ├── formatters.py        # Data formatting utilities
+├── server/              # DXT package directory
+│   ├── main.py         # Server entry point (copied from things_server.py)
+│   ├── url_scheme.py   # URL scheme module
+│   ├── formatters.py   # Formatters module
+│   └── lib/            # Bundled Python dependencies
 ├── tests/               # Unit tests
 │   ├── conftest.py      # Test fixtures and configuration
 │   ├── test_url_scheme.py
 │   └── test_formatters.py
+├── manifest.json        # DXT package manifest
+├── build_dxt.sh         # DXT package build script
 ├── pyproject.toml       # Project dependencies and pytest config
 └── run.sh               # Convenience runner script
 ```
 
+### Building DXT Package
+
+For developers who want to create their own DXT package:
+
+1. **Bundle dependencies**: Dependencies are automatically bundled into `server/lib/` when you run the build script
+2. **Build the package**:
+   ```bash
+   ./build_dxt.sh
+   ```
+3. **Find your package**: The DXT file will be created in `dist/things-mcp-{version}.dxt` (version auto-detected from manifest.json)
+
+The build script:
+- Creates the proper directory structure in a temporary location
+- Bundles all Python dependencies with the correct Python version
+- Uses `dxt pack` for proper DXT packaging with validation
+- Automatically extracts version from manifest.json
+- Cleans up temporary files
+
+The DXT package is completely self-contained and includes:
+- The MCP server code (`server/main.py`, `server/url_scheme.py`, `server/formatters.py`)
+- All Python dependencies in `server/lib/`
+- Package metadata in `manifest.json`
 
 ## Troubleshooting
 
