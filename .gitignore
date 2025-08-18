@@ -9,9 +9,6 @@ wheels/
 # Virtual environments
 .venv
 
-# Github
-.github/
-
 # DXT build artifacts
 /server/
 *.dxt
