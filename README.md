@@ -29,20 +29,22 @@ If you find this project helpful, consider supporting its development:
 - A MCP client, such as Claude Desktop or Claude Code
 - Things 3 app with "Enable Things URLs" turned on (Settings → General)
 
-### DXT Installation (Recommended - One-Click Install)
+### DXT Installation (Recommended for Claude Desktop)
 
-Desktop Extensions (.dxt) provide the easiest way to install MCP servers with all dependencies pre-bundled.
+Desktop Extensions (.dxt) provide the easiest way to install MCP servers.
 
 1. Download the latest `things-mcp-0.4.0.dxt` file from the [releases page](https://github.com/hald/things-mcp/releases)
 2. Double-click the `.dxt` file to install it in Claude Desktop
-3. The extension will be automatically configured and ready to use!
+3. The extension will be automatically configured and ready to use
 
 That's it! The DXT package includes all Python dependencies and handles the configuration automatically.
+
+To setup Things MCP with Cladue Code, or other MCP clients, scroll down to the Manual Installation section.
 
 ### Verify it's working
 
 After installation:
-- If using Claude Desktop, you should see "Things 3" in the "Search and tools" list
+- If using Claude Desktop, you should see "Things MCP" in the "Search and tools" list
 - Try asking: "What's in my Things inbox?"
 
 ### Sample Usage with Claude Desktop
