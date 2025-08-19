@@ -34,6 +34,7 @@ echo "Bundling Python dependencies..."
 VERSION=$(grep '"version"' manifest.json | head -1 | sed 's/.*"version": *"\([^"]*\)".*/\1/')
 
 # Use dxt pack to create the package
+# Install with "npm install -g @anthropic-ai/dxt"
 echo "Packaging with dxt pack..."
 dxt pack "$TEMP_DIR" "dist/things-mcp-${VERSION}.dxt"
 
