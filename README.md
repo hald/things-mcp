@@ -181,6 +181,15 @@ uv sync
 
 **Replace `/Users/yourusername/things-mcp` with your actual path from Step 2!**
 
+**Note**: If you installed uv outside of Homebrew, you may need to use the full path to uv in your MCP configuration. Common locations include:
+- pip install: Usually in your Python environment's bin directory
+- Standalone installer: `~/.local/bin/uv` or `~/.cargo/bin/uv`
+
+To find your uv location, run:
+```bash
+which uv
+```
+
 4. Save the file and restart Claude Desktop
 
 #### For Claude Code:
