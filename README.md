@@ -39,7 +39,7 @@ Desktop Extensions (.dxt) provide the easiest way to install MCP servers.
 
 That's it! The DXT package includes all Python dependencies and handles the configuration automatically.
 
-To setup Things MCP with Cladue Code, or other MCP clients, scroll down to the Manual Installation section.
+To setup Things MCP with Claude Code, or other MCP clients, scroll down to the Manual Installation section.
 
 ### Verify it's working
 
