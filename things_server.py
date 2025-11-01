@@ -85,24 +85,41 @@ async def get_trash() -> str:
 
 # Basic operations
 @mcp.tool
-async def get_todos(project_uuid: str = None, include_items: bool = True) -> str:
+async def get_todos(project_uuid: str = None, include_items: bool = True, limit: int = None, offset: int = 0) -> str:
     """Get todos from Things, optionally filtered by project
-    
+
     Args:
         project_uuid: Optional UUID of a specific project to get todos from
         include_items: Include checklist items
+        limit: Maximum number of todos to return
+        offset: Number of todos to skip (for pagination)
     """
     if project_uuid:
         project = things.get(project_uuid)
         if not project or project.get('type') != 'project':
             return f"Error: Invalid project UUID '{project_uuid}'"
-    
+
     todos = things.todos(project=project_uuid, start=None, include_items=include_items)
     if not todos:
         return "No todos found"
-    
+
+    # Apply pagination
+    total_count = len(todos)
+    if offset > 0:
+        todos = todos[offset:]
+    if limit is not None:
+        todos = todos[:limit]
+
+    if not todos:
+        return f"No todos found (offset {offset} beyond total {total_count})"
+
     formatted_todos = [format_todo(todo) for todo in todos]
-    return "\n\n---\n\n".join(formatted_todos)
+    result = "\n\n---\n\n".join(formatted_todos)
+
+    # Add pagination info
+    result += f"\n\n---\n\nShowing {len(formatted_todos)} of {total_count} todos (offset: {offset})"
+
+    return result
 
 @mcp.tool
 async def get_projects(include_items: bool = False) -> str:
@@ -268,7 +285,7 @@ async def add_todo(
     heading_id: str = None
 ) -> str:
     """Create a new todo in Things
-    
+
     Args:
         title: Title of the todo
         notes: Notes for the todo
