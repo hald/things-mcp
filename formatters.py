@@ -1,5 +1,6 @@
 import logging
 import things
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,36 @@ def format_todo(todo: dict) -> str:
         todo_text += f"\nDeadline: {todo['deadline']}"
     if todo.get('stop_date'):  # Completion date
         todo_text += f"\nCompleted: {todo['stop_date']}"
+    
+    # Add creation and modification dates
+    if todo.get('created'):
+        todo_text += f"\nCreated: {todo['created']}"
+        # Calculate age
+        try:
+            created_date = datetime.fromisoformat(str(todo['created']))
+            age = datetime.now() - created_date
+            days = age.days
+            if days == 0:
+                age_text = "today"
+            elif days == 1:
+                age_text = "1 day ago"
+            elif days < 7:
+                age_text = f"{days} days ago"
+            elif days < 30:
+                weeks = days // 7
+                age_text = f"{weeks} week{'s' if weeks > 1 else ''} ago"
+            elif days < 365:
+                months = days // 30
+                age_text = f"{months} month{'s' if months > 1 else ''} ago"
+            else:
+                years = days // 365
+                age_text = f"{years} year{'s' if years > 1 else ''} ago"
+            todo_text += f"\nAge: {age_text}"
+        except:
+            pass
+    
+    if todo.get('modified'):
+        todo_text += f"\nModified: {todo['modified']}"
     
     # Add notes if present
     if todo.get('notes'):
