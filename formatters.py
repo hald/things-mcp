@@ -4,6 +4,39 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
+def _calculate_age(date_str: str) -> str:
+    """Helper function to calculate human-readable age from a date string.
+    
+    Args:
+        date_str: ISO format date string
+        
+    Returns:
+        Human-readable age string (e.g., "3 days ago", "2 weeks ago")
+        
+    Raises:
+        ValueError: If date string cannot be parsed
+        TypeError: If date_str is not a string
+    """
+    date_obj = datetime.fromisoformat(str(date_str))
+    age = datetime.now() - date_obj
+    days = age.days
+    
+    if days == 0:
+        return "today"
+    elif days == 1:
+        return "1 day ago"
+    elif days < 7:
+        return f"{days} days ago"
+    elif days < 30:
+        weeks = days // 7
+        return f"{weeks} week{'s' if weeks > 1 else ''} ago"
+    elif days < 365:
+        months = days // 30
+        return f"{months} month{'s' if months > 1 else ''} ago"
+    else:
+        years = days // 365
+        return f"{years} year{'s' if years > 1 else ''} ago"
+
 def format_todo(todo: dict) -> str:
     """Helper function to format a single todo into a readable string."""
     logger.debug(f"Formatting todo: {todo}")
@@ -34,32 +67,21 @@ def format_todo(todo: dict) -> str:
     # Add creation and modification dates
     if todo.get('created'):
         todo_text += f"\nCreated: {todo['created']}"
-        # Calculate age
+        # Calculate age since creation
         try:
-            created_date = datetime.fromisoformat(str(todo['created']))
-            age = datetime.now() - created_date
-            days = age.days
-            if days == 0:
-                age_text = "today"
-            elif days == 1:
-                age_text = "1 day ago"
-            elif days < 7:
-                age_text = f"{days} days ago"
-            elif days < 30:
-                weeks = days // 7
-                age_text = f"{weeks} week{'s' if weeks > 1 else ''} ago"
-            elif days < 365:
-                months = days // 30
-                age_text = f"{months} month{'s' if months > 1 else ''} ago"
-            else:
-                years = days // 365
-                age_text = f"{years} year{'s' if years > 1 else ''} ago"
+            age_text = _calculate_age(todo['created'])
             todo_text += f"\nAge: {age_text}"
-        except:
+        except (ValueError, TypeError):
             pass
     
     if todo.get('modified'):
         todo_text += f"\nModified: {todo['modified']}"
+        # Calculate time since last modification
+        try:
+            modified_age = _calculate_age(todo['modified'])
+            todo_text += f"\nLast modified: {modified_age}"
+        except (ValueError, TypeError):
+            pass
     
     # Add notes if present
     if todo.get('notes'):
@@ -100,7 +122,7 @@ def format_todo(todo: dict) -> str:
     if isinstance(todo.get('checklist'), list):
         todo_text += "\nChecklist:"
         for item in todo['checklist']:
-            status = "✓" if item['status'] == 'completed' else "□"
+            status = "âœ“" if item['status'] == 'completed' else "â–¡"
             todo_text += f"\n  {status} {item['title']}"
     
     return todo_text

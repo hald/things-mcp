@@ -21,6 +21,35 @@ If you find this project helpful, consider supporting its development:
 - Recent items tracking
 - Detailed item information including checklists
 - Support for nested data (projects within areas, todos within projects)
+- **Human-readable age display** - See how long tasks have been created and when they were last modified
+  - Shows task age in natural language (e.g., "3 days ago", "2 weeks ago")
+  - Displays both creation age and modification age
+  - Helps identify stale tasks and recently updated items
+
+### Task Age Display
+
+When viewing tasks, the server automatically calculates and displays human-readable ages:
+
+```
+Title: Prepare presentation
+Created: 2025-11-09T10:30:00
+Age: 1 week ago
+Modified: 2025-11-15T14:20:00
+Last modified: 1 day ago
+```
+
+This makes it easy to:
+- Identify tasks that have been sitting for a long time
+- See recently created tasks at a glance
+- Track when tasks were last updated
+- Make better decisions about task prioritization
+
+Age is displayed in natural language:
+- **Same day**: "today"
+- **Recent days**: "3 days ago"
+- **Recent weeks**: "2 weeks ago"
+- **Recent months**: "3 months ago"
+- **Years**: "2 years ago"
 
 ## Installation
 
@@ -52,10 +81,12 @@ After installation:
 * "Create a todo to pack for my beach vacation next week, include a packing checklist."
 * "Evaluate my current todos using the Eisenhower matrix."
 * "Help me conduct a GTD-style weekly review using Things."
+* "Show me tasks that haven't been modified in over a month."
 
 #### Tips
 * Create a project in Claude with custom instructions that explains how you use Things and organize areas, projects, tags, etc. Tell Claude what information you want included when it creates a new task (eg asking it to include relevant details in the task description might be helpful).
 * Try adding another MCP server that gives Claude access to your calendar. This will let you ask Claude to block time on your calendar for specific tasks, create todos from upcoming calendar events (eg prep for a meeting), etc.
+* Use task ages to identify stale items: "Which tasks in my Anytime list are older than 2 weeks?"
 
 
 ### Available Tools

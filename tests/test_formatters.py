@@ -1,6 +1,75 @@
 import pytest
 from unittest.mock import patch
-from formatters import format_todo, format_project, format_area, format_tag, format_heading
+from datetime import datetime, timedelta
+from formatters import format_todo, format_project, format_area, format_tag, format_heading, _calculate_age
+
+
+class TestCalculateAge:
+    """Test the _calculate_age helper function."""
+    
+    def test_age_today(self):
+        """Test age calculation for today."""
+        now = datetime.now()
+        result = _calculate_age(now.isoformat())
+        assert result == "today"
+    
+    def test_age_one_day(self):
+        """Test age calculation for exactly 1 day ago."""
+        one_day_ago = datetime.now() - timedelta(days=1)
+        result = _calculate_age(one_day_ago.isoformat())
+        assert result == "1 day ago"
+    
+    def test_age_multiple_days(self):
+        """Test age calculation for multiple days ago."""
+        three_days_ago = datetime.now() - timedelta(days=3)
+        result = _calculate_age(three_days_ago.isoformat())
+        assert result == "3 days ago"
+    
+    def test_age_one_week(self):
+        """Test age calculation for one week ago."""
+        one_week_ago = datetime.now() - timedelta(days=7)
+        result = _calculate_age(one_week_ago.isoformat())
+        assert result == "1 week ago"
+    
+    def test_age_multiple_weeks(self):
+        """Test age calculation for multiple weeks ago."""
+        three_weeks_ago = datetime.now() - timedelta(days=21)
+        result = _calculate_age(three_weeks_ago.isoformat())
+        assert result == "3 weeks ago"
+    
+    def test_age_one_month(self):
+        """Test age calculation for approximately one month ago."""
+        one_month_ago = datetime.now() - timedelta(days=30)
+        result = _calculate_age(one_month_ago.isoformat())
+        assert result == "1 month ago"
+    
+    def test_age_multiple_months(self):
+        """Test age calculation for multiple months ago."""
+        three_months_ago = datetime.now() - timedelta(days=90)
+        result = _calculate_age(three_months_ago.isoformat())
+        assert result == "3 months ago"
+    
+    def test_age_one_year(self):
+        """Test age calculation for one year ago."""
+        one_year_ago = datetime.now() - timedelta(days=365)
+        result = _calculate_age(one_year_ago.isoformat())
+        assert result == "1 year ago"
+    
+    def test_age_multiple_years(self):
+        """Test age calculation for multiple years ago."""
+        two_years_ago = datetime.now() - timedelta(days=730)
+        result = _calculate_age(two_years_ago.isoformat())
+        assert result == "2 years ago"
+    
+    def test_age_invalid_date_string(self):
+        """Test that invalid date string raises ValueError."""
+        with pytest.raises(ValueError):
+            _calculate_age("not-a-date")
+    
+    def test_age_none_value(self):
+        """Test that None value raises TypeError."""
+        with pytest.raises((ValueError, TypeError)):
+            _calculate_age(None)
 
 
 class TestFormatTodo:
@@ -46,6 +115,80 @@ class TestFormatTodo:
         assert "Start Date: 2024-01-15" in result
         assert "Deadline: 2024-01-20" in result
         assert "Completed: 2024-01-18" in result
+    
+    def test_format_todo_with_created_age(self):
+        """Test formatting todo with created date shows age."""
+        three_days_ago = (datetime.now() - timedelta(days=3)).isoformat()
+        todo = {
+            'title': 'Recent Todo',
+            'uuid': 'recent-uuid',
+            'type': 'to-do',
+            'created': three_days_ago
+        }
+        result = format_todo(todo)
+        
+        assert "Created:" in result
+        assert "Age: 3 days ago" in result
+    
+    def test_format_todo_with_modified_age(self):
+        """Test formatting todo with modified date shows modification age."""
+        one_week_ago = (datetime.now() - timedelta(days=7)).isoformat()
+        todo = {
+            'title': 'Modified Todo',
+            'uuid': 'modified-uuid',
+            'type': 'to-do',
+            'modified': one_week_ago
+        }
+        result = format_todo(todo)
+        
+        assert "Modified:" in result
+        assert "Last modified: 1 week ago" in result
+    
+    def test_format_todo_with_both_created_and_modified_age(self):
+        """Test formatting todo with both created and modified dates shows both ages."""
+        two_weeks_ago = (datetime.now() - timedelta(days=14)).isoformat()
+        five_days_ago = (datetime.now() - timedelta(days=5)).isoformat()
+        todo = {
+            'title': 'Updated Todo',
+            'uuid': 'updated-uuid',
+            'type': 'to-do',
+            'created': two_weeks_ago,
+            'modified': five_days_ago
+        }
+        result = format_todo(todo)
+        
+        assert "Created:" in result
+        assert "Age: 2 weeks ago" in result
+        assert "Modified:" in result
+        assert "Last modified: 5 days ago" in result
+    
+    def test_format_todo_with_invalid_created_date(self):
+        """Test formatting todo with invalid created date doesn't crash."""
+        todo = {
+            'title': 'Todo with Bad Date',
+            'uuid': 'bad-date-uuid',
+            'type': 'to-do',
+            'created': 'invalid-date'
+        }
+        result = format_todo(todo)
+        
+        # Should include created date but no age
+        assert "Created: invalid-date" in result
+        assert "Age:" not in result
+    
+    def test_format_todo_with_invalid_modified_date(self):
+        """Test formatting todo with invalid modified date doesn't crash."""
+        todo = {
+            'title': 'Todo with Bad Modified Date',
+            'uuid': 'bad-modified-uuid',
+            'type': 'to-do',
+            'modified': 'not-a-date'
+        }
+        result = format_todo(todo)
+        
+        # Should include modified date but no age
+        assert "Modified: not-a-date" in result
+        assert "Last modified:" not in result
     
     def test_format_todo_with_notes(self):
         """Test formatting todo with notes."""
@@ -134,9 +277,9 @@ class TestFormatTodo:
         result = format_todo(todo)
         
         assert "Checklist:" in result
-        assert "  ✓ First item" in result
-        assert "  □ Second item" in result
-        assert "  ✓ Third item" in result
+        assert "  âœ“ First item" in result
+        assert "  â–¡ Second item" in result
+        assert "  âœ“ Third item" in result
     
     def test_format_todo_with_start_location(self):
         """Test formatting todo with start/list location."""
@@ -173,8 +316,8 @@ class TestFormatTodo:
         assert "Area: Mock Area" in result
         assert "Heading: Mock Heading" in result
         assert "Tags: work, urgent" in result
-        assert "✓ First item" in result
-        assert "□ Second item" in result
+        assert "âœ“ First item" in result
+        assert "â–¡ Second item" in result
 
 
 class TestFormatProject:
@@ -437,8 +580,8 @@ class TestEdgeCases:
         # Checklist header appears but no items
         assert "Checklist:" in result
         # No checklist items should be present
-        assert "□" not in result
-        assert "✓" not in result
+        assert "â–¡" not in result
+        assert "âœ“" not in result
     
     @patch('things.todos')
     @patch('things.tasks')
