@@ -29,15 +29,15 @@ If you find this project helpful, consider supporting its development:
 - A MCP client, such as Claude Desktop or Claude Code
 - Things 3 app with "Enable Things URLs" turned on (Settings → General)
 
-### DXT Installation (Recommended for Claude Desktop)
+### MCPB Installation (Recommended for Claude Desktop)
 
-Desktop Extensions (.dxt) provide the easiest way to install MCP servers.
+MCP Bundles (.mcpb) provide the easiest way to install MCP servers.
 
-1. Download the latest `things-mcp-0.4.0.dxt` file from the [releases page](https://github.com/hald/things-mcp/releases)
-2. Double-click the `.dxt` file to install it in Claude Desktop
+1. Download the latest `things-mcp-0.5.0.mcpb` file from the [releases page](https://github.com/hald/things-mcp/releases)
+2. Double-click the `.mcpb` file to install it in Claude Desktop
 3. The extension will be automatically configured and ready to use
 
-That's it! The DXT package includes all Python dependencies and handles the configuration automatically.
+That's it! The MCPB package includes all Python dependencies and handles the configuration automatically.
 
 To setup Things MCP with Claude Code, or other MCP clients, scroll down to the Manual Installation section.
 
@@ -281,8 +281,8 @@ things-mcp/
 │   ├── conftest.py      # Test fixtures and configuration
 │   ├── test_url_scheme.py
 │   └── test_formatters.py
-├── manifest.json        # DXT package manifest
-├── build_dxt.sh         # DXT package build script
+├── manifest.json        # MCPB package manifest
+├── build_mcpb.sh        # MCPB package build script
 ├── pyproject.toml       # Project dependencies and pytest config
 └── run.sh               # Convenience runner script
 ```
