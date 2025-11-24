@@ -277,9 +277,9 @@ class TestFormatTodo:
         result = format_todo(todo)
         
         assert "Checklist:" in result
-        assert "  âœ“ First item" in result
-        assert "  â–¡ Second item" in result
-        assert "  âœ“ Third item" in result
+        assert "  ✓ First item" in result
+        assert "  □ Second item" in result
+        assert "  ✓ Third item" in result
     
     def test_format_todo_with_start_location(self):
         """Test formatting todo with start/list location."""
@@ -316,8 +316,8 @@ class TestFormatTodo:
         assert "Area: Mock Area" in result
         assert "Heading: Mock Heading" in result
         assert "Tags: work, urgent" in result
-        assert "âœ“ First item" in result
-        assert "â–¡ Second item" in result
+        assert "✓ First item" in result
+        assert "□ Second item" in result
 
 
 class TestFormatProject:
@@ -580,8 +580,8 @@ class TestEdgeCases:
         # Checklist header appears but no items
         assert "Checklist:" in result
         # No checklist items should be present
-        assert "â–¡" not in result
-        assert "âœ“" not in result
+        assert "□" not in result
+        assert "✓" not in result
     
     @patch('things.todos')
     @patch('things.tasks')
