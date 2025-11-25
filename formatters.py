@@ -122,7 +122,6 @@ def format_todo(todo: dict) -> str:
     if isinstance(todo.get('checklist'), list):
         todo_text += "\nChecklist:"
         for item in todo['checklist']:
-            status = "✓" if item['status'] == 'completed' else "□"
             todo_text += f"\n  {status} {item['title']}"
     
     return todo_text
@@ -141,6 +140,25 @@ def format_project(project: dict, include_items: bool = False) -> str:
             
     if project.get('notes'):
         project_text += f"\nNotes: {project['notes']}"
+    
+    # Add creation and modification dates
+    if project.get('created'):
+        project_text += f"\nCreated: {project['created']}"
+        # Calculate age since creation
+        try:
+            age_text = _calculate_age(project['created'])
+            project_text += f"\nAge: {age_text}"
+        except (ValueError, TypeError):
+            pass
+    
+    if project.get('modified'):
+        project_text += f"\nModified: {project['modified']}"
+        # Calculate time since last modification
+        try:
+            modified_age = _calculate_age(project['modified'])
+            project_text += f"\nLast modified: {modified_age}"
+        except (ValueError, TypeError):
+            pass
     
     # Always show headings for projects
     headings = things.tasks(type='heading', project=project['uuid'])
@@ -164,6 +182,23 @@ def format_area(area: dict, include_items: bool = False) -> str:
     
     if area.get('notes'):
         area_text += f"\nNotes: {area['notes']}"
+    
+    # Add creation and modification dates
+    if area.get('created'):
+        area_text += f"\nCreated: {area['created']}"
+        try:
+            age_text = _calculate_age(area['created'])
+            area_text += f"\nAge: {age_text}"
+        except (ValueError, TypeError):
+            pass
+    
+    if area.get('modified'):
+        area_text += f"\nModified: {area['modified']}"
+        try:
+            modified_age = _calculate_age(area['modified'])
+            area_text += f"\nLast modified: {modified_age}"
+        except (ValueError, TypeError):
+            pass
         
     if include_items:
         projects = things.projects(area=area['uuid'])
@@ -216,8 +251,18 @@ def format_heading(heading: dict, include_items: bool = False) -> str:
     # Add dates
     if heading.get('created'):
         heading_text += f"\nCreated: {heading['created']}"
+        try:
+            age_text = _calculate_age(heading['created'])
+            heading_text += f"\nAge: {age_text}"
+        except (ValueError, TypeError):
+            pass
     if heading.get('modified'):
         heading_text += f"\nModified: {heading['modified']}"
+        try:
+            modified_age = _calculate_age(heading['modified'])
+            heading_text += f"\nLast modified: {modified_age}"
+        except (ValueError, TypeError):
+            pass
         
     # Add notes if present
     if heading.get('notes'):
