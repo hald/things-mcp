@@ -14,11 +14,8 @@
     "type": "python",
     "entry_point": "server/main.py",
     "mcp_config": {
-      "command": "/opt/homebrew/bin/python3",
-      "args": ["${__dirname}/server/main.py"],
-      "env": {
-        "PYTHONPATH": "${__dirname}/server/lib"
-      }
+      "command": "uv",
+      "args": ["--directory", "${__dirname}/server", "run", "--with", "fastmcp", "fastmcp", "run", "main.py"]
     }
   },
   "tools": [

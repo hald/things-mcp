@@ -28,6 +28,7 @@ If you find this project helpful, consider supporting its development:
 - macOS (Things 3 is Mac-only)
 - A MCP client, such as Claude Desktop or Claude Code
 - Things 3 app with "Enable Things URLs" turned on (Settings → General)
+- [uv](https://docs.astral.sh/uv/) Python package manager: `brew install uv`
 
 ### MCPB Installation (Recommended for Claude Desktop)
 
@@ -37,9 +38,9 @@ MCP Bundles (.mcpb) provide the easiest way to install MCP servers.
 2. Double-click the `.mcpb` file to install it in Claude Desktop
 3. The extension will be automatically configured and ready to use
 
-That's it! The MCPB package includes all Python dependencies and handles the configuration automatically.
+The MCPB package uses `uv` to automatically resolve and install the correct Python dependencies for your system architecture.
 
-To setup Things MCP with Claude Code, or other MCP clients, scroll down to the Manual Installation section.
+To setup Things MCP with Claude Code or other MCP clients, scroll down to the Manual Installation section.
 
 ### Verify it's working
 
@@ -117,23 +118,7 @@ After installation:
 
 For advanced users who prefer to install from source:
 
-### Step 1: Install uv (Python package manager)
-
-First, make sure you have Homebrew installed:
-```bash
-# Check if Homebrew is installed
-brew --version
-
-# If not installed, install Homebrew:
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-```
-
-Then install uv (if not installed already):
-```bash
-brew install uv
-```
-
-### Step 2: Clone the repository
+### Step 1: Clone the repository
 
 Choose a location where you want to install Things MCP. For example, to install in your home directory:
 
@@ -149,13 +134,13 @@ pwd
 ```
 This will show something like: `/Users/yourusername/things-mcp`
 
-### Step 3: Install dependencies
+### Step 2: Install dependencies
 
 ```bash
 uv sync
 ```
 
-### Step 4: Configure Claude
+### Step 3: Configure Claude
 
 #### For Claude Desktop:
 
@@ -179,7 +164,7 @@ uv sync
 }
 ```
 
-**Replace `/Users/yourusername/things-mcp` with your actual path from Step 2!**
+**Replace `/Users/yourusername/things-mcp` with your actual path from Step 1!**
 
 **Note**: If you installed uv outside of Homebrew, you may need to use the full path to uv in your MCP configuration. Common locations include:
 - pip install: Usually in your Python environment's bin directory
@@ -199,14 +184,14 @@ In your terminal, run:
 claude mcp add-json things '{"command":"uv","args":["--directory","/path/to/things-mcp","run","things_server.py"]}'
 ```
 
-**Replace `/path/to/things-mcp` with your actual path from Step 2!**
+**Replace `/path/to/things-mcp` with your actual path from Step 1!**
 
 To make it available globally (across all projects), add `-s user`:
 ```bash
 claude mcp add-json -s user things '{"command":"uv","args":["--directory","/path/to/things-mcp","run","things_server.py"]}'
 ```
 
-### Step 5: Verify it's working
+### Step 4: Verify it's working
 
 After restarting your MCP client:
 - If using Claude Desktop, you should see "Things 3" in the "Search and tools" list
@@ -236,6 +221,9 @@ If it's not working:
    - "spawn uv ENOENT" - Make sure uv was installed with Homebrew (`brew install uv`)
    - "No module named 'things'" - Run `uv sync` in the things-mcp directory
    - "Command not found: uv" - Install uv with Homebrew: `brew install uv`
+
+6. **MCPB-specific issues:**
+   - "No module named 'pydantic_core'" or similar binary module errors - Install uv (`brew install uv`) and restart Claude Desktop. The MCPB package requires uv to resolve dependencies at runtime.
 
 ### Updating
 
@@ -285,12 +273,4 @@ things-mcp/
 ├── build_mcpb.sh        # MCPB package build script
 ├── pyproject.toml       # Project dependencies and pytest config
 └── run.sh               # Convenience runner script
-```
-
-## Troubleshooting
-
-To review the MCP logs from Claude Desktop, run this in the Terminal:
-```bash
-# Follow logs in real-time
-tail -n 20 -f ~/Library/Logs/Claude/mcp*.log
 ```

@@ -25,10 +25,9 @@ cp things_server.py "$TEMP_DIR/server/main.py"
 cp url_scheme.py "$TEMP_DIR/server/"
 cp formatters.py "$TEMP_DIR/server/"
 
-# Bundle dependencies directly into temp location
-echo "Bundling Python dependencies..."
-# Use Homebrew Python that will run the code (must match manifest.json command)
-/opt/homebrew/bin/python3 -m pip install --target "$TEMP_DIR/server/lib" "httpx>=0.28.1" "fastmcp>=2.0.0" "things-py>=0.0.15"
+# Copy pyproject.toml so uv can resolve dependencies at runtime
+echo "Copying pyproject.toml for uv dependency resolution..."
+cp pyproject.toml "$TEMP_DIR/server/"
 
 # Extract version from manifest.json
 VERSION=$(grep '"version"' manifest.json | head -1 | sed 's/.*"version": *"\([^"]*\)".*/\1/')
