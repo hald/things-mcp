@@ -2,14 +2,14 @@
 
 set -e
 
-echo "Building Things MCP DXT package..."
+echo "Building Things MCP bundle (.mcpb)..."
 
 # Clean previous build
 echo "Cleaning previous builds..."
 rm -rf dist/
 mkdir -p dist/
 
-# Create temporary directory for DXT contents
+# Create temporary directory for bundle contents
 TEMP_DIR=$(mktemp -d)
 echo "Using temporary directory: $TEMP_DIR"
 
@@ -32,15 +32,15 @@ cp pyproject.toml "$TEMP_DIR/server/"
 # Extract version from manifest.json
 VERSION=$(grep '"version"' manifest.json | head -1 | sed 's/.*"version": *"\([^"]*\)".*/\1/')
 
-# Use dxt pack to create the package
-# Install with "npm install -g @anthropic-ai/dxt"
-echo "Packaging with dxt pack..."
-dxt pack "$TEMP_DIR" "dist/things-mcp-${VERSION}.dxt"
+# Use mcpb pack to create the package
+# Install with "npm install -g @anthropic-ai/mcpb"
+echo "Packaging with mcpb pack..."
+mcpb pack "$TEMP_DIR" "dist/things-mcp-${VERSION}.mcpb"
 
 # Clean up temp directory
 rm -rf "$TEMP_DIR"
 
-echo "DXT package created successfully: dist/things-mcp-${VERSION}.dxt"
+echo "MCPB package created successfully: dist/things-mcp-${VERSION}.mcpb"
 ls -la dist/
 
 echo "Build completed successfully!"
