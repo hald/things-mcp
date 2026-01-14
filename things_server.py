@@ -236,12 +236,15 @@ async def search_advanced(
         search_params["tag"] = tag
     if area:
         search_params["area"] = area
-    if type:
-        search_params["type"] = type
     if last:
         search_params["last"] = last
-    
-    todos = things.todos(include_items=True, **search_params)
+
+    if type:
+        # Use things.tasks() when type is specified since things.todos()
+        # hardcodes type="to-do"
+        todos = things.tasks(type=type, include_items=True, **search_params)
+    else:
+        todos = things.todos(include_items=True, **search_params)
     if not todos:
         return "No matching todos found"
     
