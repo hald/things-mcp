@@ -272,7 +272,8 @@ async def add_todo(
     Args:
         title: Title of the todo
         notes: Notes for the todo
-        when: When to schedule the todo (today, tomorrow, evening, anytime, someday, or YYYY-MM-DD)
+        when: When to schedule the todo (today, tomorrow, evening, anytime, someday, or YYYY-MM-DD).
+            Use YYYY-MM-DD@HH:MM format to add a reminder (e.g., 2024-01-15@14:30)
         deadline: Deadline for the todo (YYYY-MM-DD)
         tags: Tags to apply to the todo
         checklist_items: Checklist items to add
@@ -312,8 +313,9 @@ async def add_project(
     Args:
         title: Title of the project
         notes: Notes for the project
-        when: When to schedule the project
-        deadline: Deadline for the project
+        when: When to schedule the project (today, tomorrow, evening, anytime, someday, or YYYY-MM-DD).
+            Use YYYY-MM-DD@HH:MM format to add a reminder (e.g., 2024-01-15@14:30)
+        deadline: Deadline for the project (YYYY-MM-DD)
         tags: Tags to apply to the project
         area_id: ID of area to add to
         area_title: Title of area to add to
@@ -348,13 +350,14 @@ async def update_todo(
     heading_id: str = None
 ) -> str:
     """Update an existing todo in Things
-    
+
     Args:
         id: ID of the todo to update
         title: New title
         notes: New notes
-        when: New schedule
-        deadline: New deadline
+        when: New schedule (today, tomorrow, evening, anytime, someday, or YYYY-MM-DD).
+            Use YYYY-MM-DD@HH:MM format to add a reminder (e.g., 2024-01-15@14:30)
+        deadline: New deadline (YYYY-MM-DD)
         tags: New tags
         completed: Mark as completed
         canceled: Mark as canceled
@@ -397,8 +400,9 @@ async def update_project(
         id: ID of the project to update
         title: New title
         notes: New notes
-        when: New schedule
-        deadline: New deadline
+        when: New schedule (today, tomorrow, evening, anytime, someday, or YYYY-MM-DD).
+            Use YYYY-MM-DD@HH:MM format to add a reminder (e.g., 2024-01-15@14:30)
+        deadline: New deadline (YYYY-MM-DD)
         tags: New tags
         completed: Mark as completed
         canceled: Mark as canceled
