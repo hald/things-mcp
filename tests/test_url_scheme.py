@@ -3,7 +3,7 @@ from unittest.mock import patch, Mock
 import subprocess
 from url_scheme import (
     execute_url, construct_url, add_todo, add_project,
-    update_todo, update_project, show, search
+    update_todo, update_project, show, search, format_when_with_reminder
 )
 
 
@@ -284,3 +284,33 @@ class TestSearch:
         """Test search with special characters."""
         url = search("test & query + special")
         assert "query=test%20%26%20query%20%2B%20special" in url
+
+
+class TestFormatWhenWithReminder:
+    """Test the format_when_with_reminder helper function."""
+
+    def test_format_with_iso_date_and_24h_time(self):
+        """Test formatting with ISO date and 24-hour time."""
+        result = format_when_with_reminder("2024-01-15", "14:30")
+        assert result == "2024-01-15@14:30"
+
+    def test_format_with_iso_date_and_12h_time(self):
+        """Test formatting with ISO date and 12-hour time."""
+        result = format_when_with_reminder("2024-01-15", "2:30PM")
+        assert result == "2024-01-15@2:30PM"
+
+    def test_format_with_keyword_date(self):
+        """Test formatting with keyword date like 'tomorrow'."""
+        result = format_when_with_reminder("tomorrow", "9:00AM")
+        assert result == "tomorrow@9:00AM"
+
+    def test_format_with_today(self):
+        """Test formatting with 'today' keyword."""
+        result = format_when_with_reminder("today", "18:00")
+        assert result == "today@18:00"
+
+    def test_format_integrates_with_add_todo(self):
+        """Test that formatted datetime works in add_todo URL."""
+        when = format_when_with_reminder("2024-06-15", "10:00")
+        url = add_todo("Test task", when=when)
+        assert "when=2024-06-15%4010%3A00" in url  # @ is %40, : is %3A
