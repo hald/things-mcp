@@ -303,5 +303,28 @@ things-mcp/
 ├── manifest.json        # MCPB package manifest
 ├── build_mcpb.sh        # MCPB package build script
 ├── pyproject.toml       # Project dependencies and pytest config
+├── .env.example         # Sample environment configuration
 └── run.sh               # Convenience runner script
 ```
+
+### HTTP Transport
+
+By default, the server uses stdio transport for communication with MCP clients. For remote access scenarios, you can run the server with HTTP transport.
+
+#### Configuration
+
+Set these environment variables to enable HTTP transport:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `THINGS_MCP_TRANSPORT` | `stdio` | Transport type: `stdio` or `http` |
+| `THINGS_MCP_HOST` | `127.0.0.1` | HTTP server bind address |
+| `THINGS_MCP_PORT` | `8000` | HTTP server port |
+
+#### Example
+
+```bash
+THINGS_MCP_TRANSPORT=http THINGS_MCP_HOST=0.0.0.0 THINGS_MCP_PORT=8000 uv run things_server.py
+```
+
+See `.env.example` for a sample configuration file.

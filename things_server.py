@@ -1,5 +1,6 @@
 from typing import List
 import logging
+import os
 import things
 from fastmcp import FastMCP
 from formatters import format_todo, format_project, format_area, format_tag
@@ -8,6 +9,11 @@ import url_scheme
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
+
+# Transport configuration via environment variables
+TRANSPORT = os.environ.get("THINGS_MCP_TRANSPORT", "stdio")  # "stdio" or "http"
+HTTP_HOST = os.environ.get("THINGS_MCP_HOST", "127.0.0.1")
+HTTP_PORT = int(os.environ.get("THINGS_MCP_PORT", "8000"))
 
 # Initialize FastMCP server
 mcp = FastMCP("Things")
@@ -449,4 +455,7 @@ async def search_items(query: str) -> str:
     return f"Searching for '{query}'"
 
 if __name__ == "__main__":
-    mcp.run()
+    if TRANSPORT == "http":
+        mcp.run(transport="http", host=HTTP_HOST, port=HTTP_PORT)
+    else:
+        mcp.run()
