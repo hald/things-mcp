@@ -63,7 +63,7 @@ Age is displayed in natural language:
 
 MCP Bundles (.mcpb) provide the easiest way to install MCP servers.
 
-1. Download the latest `things-mcp-0.5.0.mcpb` file from the [releases page](https://github.com/hald/things-mcp/releases)
+1. Download the latest `things-mcp-0.6.0.mcpb` file from the [releases page](https://github.com/hald/things-mcp/releases)
 2. Double-click the `.mcpb` file to install it in Claude Desktop
 3. The extension will be automatically configured and ready to use
 
@@ -141,9 +141,16 @@ After installation:
 - `tag` - Filter by tag
 - `area` - Filter by area UUID
 - `type` - Filter by item type (to-do/project/heading)
+- `last` - Filter by creation date (e.g., '3d' for last 3 days, '1w' for last week)
 
 ### get-recent
 - `period` - Time period (e.g., '3d', '1w', '2m', '1y')
+
+### Scheduling with Reminders (add-todo, add-project, update-todo, update-project)
+- `when` - Accepts multiple formats:
+  - Keywords: `today`, `tomorrow`, `evening`, `anytime`, `someday`
+  - Date: `YYYY-MM-DD` (e.g., `2024-01-15`)
+  - DateTime with reminder: `YYYY-MM-DD@HH:MM` (e.g., `2024-01-15@14:30`)
 
 ## Manual Installation
 
