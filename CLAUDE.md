@@ -9,8 +9,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Install dependencies (uses uv package manager)
 uv sync
 
-# Run the MCP server
+# Run the MCP server (stdio transport, default)
 uv run things_server.py
+
+# Run with HTTP transport
+THINGS_MCP_TRANSPORT=http uv run things_server.py
 ```
 
 ### Testing
@@ -39,7 +42,7 @@ Test coverage includes:
 - Authentication token handling
 - Data formatting for todos, projects, areas, and tags
 - Error handling and edge cases
-- Mock external dependencies (Things.py, AppleScript)
+- Mock external dependencies (Things.py, shell commands)
 
 ## Architecture Overview
 
@@ -54,17 +57,19 @@ This is a Model Context Protocol (MCP) server that bridges Claude Desktop with t
 
 2. **url_scheme.py** - Things URL scheme implementation
    - Constructs Things URLs for various operations
-   - Uses AppleScript to execute URLs without bringing Things to foreground
+   - Uses shell script with `open -g` to execute URLs without bringing Things to foreground
    - Handles authentication tokens for update operations
 
 3. **formatters.py** - Data formatting utilities
    - Converts Things database objects to human-readable text
    - Handles nested data (projects within areas, checklist items, etc.)
 
-4. **tests/** - Unit test suite
+4. **tests/** - Unit test suite (101 total tests)
    - **conftest.py** - Pytest fixtures and mock data
-   - **test_url_scheme.py** - Tests for URL construction (25 test cases)
-   - **test_formatters.py** - Tests for data formatting (26 test cases)
+   - **test_url_scheme.py** - Tests for URL construction (30 test cases)
+   - **test_formatters.py** - Tests for data formatting (62 test cases)
+   - **test_things_server.py** - Tests for server tools (5 test cases)
+   - **test_things_server_headings.py** - Tests for heading functionality (4 test cases)
 
 ## Key Implementation Details
 
@@ -74,8 +79,9 @@ This is a Model Context Protocol (MCP) server that bridges Claude Desktop with t
 - All tools return formatted text strings suitable for Claude
 - Error handling for invalid UUIDs and missing parameters
 - Supports filtering and including nested items via parameters
-- Unit tests mock all external dependencies (Things.py, AppleScript)
+- Unit tests mock all external dependencies (Things.py, shell commands)
 - Pytest configuration in pyproject.toml with async support
+- Supports both stdio (default) and HTTP transport modes
 
 ## Things URL Scheme Authentication
 

@@ -1,8 +1,16 @@
 # Changelog
 
+## v0.6.0 - 2026-01-14
+
+- **Creation Date Filtering**: Added `last` parameter to `search_advanced` for filtering by creation date (e.g., '3d' for last 3 days, '1w' for last week)
+- **DateTime Scheduling with Reminders**: Extended `when` parameter to support datetime format with reminders (`YYYY-MM-DD@HH:MM`)
+- **HTTP Transport**: Added optional HTTP transport mode via environment variables (`THINGS_MCP_TRANSPORT`, `THINGS_MCP_HOST`, `THINGS_MCP_PORT`)
+- **Background Execution Fix**: Changed URL execution from AppleScript to shell script with `open -g` to prevent Things from coming to foreground
+- **Bug Fix**: Fixed `search_advanced` type parameter causing duplicate keyword argument error
+
 ## v0.4.0 - 2025-08-18
 
-- **DXT Package Support**: Added automated DXT packaging system with build_dxt.sh script and manifest.json configuration
+- **DXT Package Support**: Added automated packaging system with manifest.json configuration
 - **Improved README**: Recommended DXT as preferred installation option
 
 ## v0.3.1 - 2025-08-11
