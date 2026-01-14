@@ -211,10 +211,11 @@ async def search_advanced(
     deadline: str = None,
     tag: str = None,
     area: str = None,
-    type: str = None
+    type: str = None,
+    last: str = None
 ) -> str:
     """Advanced todo search with multiple filters
-    
+
     Args:
         status: Filter by todo status (incomplete, completed, canceled)
         start_date: Filter by start date (YYYY-MM-DD)
@@ -222,6 +223,7 @@ async def search_advanced(
         tag: Filter by tag
         area: Filter by area UUID
         type: Filter by item type (to-do, project, heading)
+        last: Filter by creation date (e.g., '3d' for last 3 days, '1w' for last week, '1y' for last year)
     """
     search_params = {}
     if status:
@@ -236,6 +238,8 @@ async def search_advanced(
         search_params["area"] = area
     if type:
         search_params["type"] = type
+    if last:
+        search_params["last"] = last
     
     todos = things.todos(include_items=True, **search_params)
     if not todos:
