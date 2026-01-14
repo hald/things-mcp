@@ -9,28 +9,32 @@ from url_scheme import (
 
 class TestExecuteUrl:
     """Test the execute_url function."""
-    
+
     @patch('subprocess.run')
     def test_execute_url_success(self, mock_run):
-        """Test successful URL execution via osascript."""
+        """Test successful URL execution via osascript with open -g."""
         mock_run.return_value = Mock(returncode=0)
-        
+
         execute_url("things:///add?title=Test")
-        
+
         mock_run.assert_called_once_with(
-            ['osascript', '-e', 'tell application "Things3" to open location "things:///add?title=Test"'],
+            ['osascript', '-e', 'do shell script "open -g \\"things:///add?title=Test\\""'],
             check=True, capture_output=True, text=True
         )
-    
+
     @patch('subprocess.run')
-    @patch('webbrowser.open')
-    def test_execute_url_fallback(self, mock_webbrowser, mock_run):
-        """Test fallback to webbrowser when osascript fails."""
-        mock_run.side_effect = subprocess.CalledProcessError(1, 'osascript')
-        
+    def test_execute_url_fallback(self, mock_run):
+        """Test fallback to open -g directly when osascript fails."""
+        # First call (osascript) fails, second call (open -g) succeeds
+        mock_run.side_effect = [
+            subprocess.CalledProcessError(1, 'osascript'),
+            Mock(returncode=0)
+        ]
+
         execute_url("things:///add?title=Test")
-        
-        mock_webbrowser.assert_called_once_with("things:///add?title=Test")
+
+        assert mock_run.call_count == 2
+        mock_run.assert_called_with(['open', '-g', 'things:///add?title=Test'], check=True)
 
 
 class TestConstructUrl:
