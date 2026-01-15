@@ -7,6 +7,7 @@
 - **HTTP Transport**: Added optional HTTP transport mode via environment variables (`THINGS_MCP_TRANSPORT`, `THINGS_MCP_HOST`, `THINGS_MCP_PORT`)
 - **Background Execution Fix**: Changed URL execution from AppleScript to shell script with `open -g` to prevent Things from coming to foreground
 - **Bug Fix**: Fixed `search_advanced` type parameter causing duplicate keyword argument error
+- **MCP Integration Test Plan**: Added Claude-executable integration test plan (`docs/mcp_integration_test_plan.md`) for verifying MCP tools against a live Things database
 
 ## v0.4.0 - 2025-08-18
 

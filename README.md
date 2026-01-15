@@ -296,6 +296,12 @@ uv run pytest tests/test_url_scheme.py
 uv run pytest -k "test_add_todo"
 ```
 
+### MCP Integration Test
+
+The project includes an integration test plan that can be executed by Claude (via Claude Cowork or Claude Code) to verify all MCP tools work correctly against a live Things database.
+
+See [`docs/mcp_integration_test_plan.md`](docs/mcp_integration_test_plan.md) for the full test plan.
+
 ### Project Structure
 
 ```
@@ -307,6 +313,8 @@ things-mcp/
 │   ├── conftest.py      # Test fixtures and configuration
 │   ├── test_url_scheme.py
 │   └── test_formatters.py
+├── docs/                # Documentation
+│   └── mcp_integration_test_plan.md  # Claude-executable integration test
 ├── manifest.json        # MCPB package manifest
 ├── build_mcpb.sh        # MCPB package build script
 ├── pyproject.toml       # Project dependencies and pytest config
