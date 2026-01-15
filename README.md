@@ -343,3 +343,5 @@ THINGS_MCP_TRANSPORT=http THINGS_MCP_HOST=0.0.0.0 THINGS_MCP_PORT=8000 uv run th
 ```
 
 See `.env.example` for a sample configuration file.
+
+> **Note:** HTTP transport requires running the server directly with `uv run things_server.py`. It is not available when installed via the `.mcpb` package, which uses stdio transport for Claude Desktop integration.

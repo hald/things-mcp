@@ -4,7 +4,7 @@
 
 - **Creation Date Filtering**: Added `last` parameter to `search_advanced` for filtering by creation date (e.g., '3d' for last 3 days, '1w' for last week)
 - **DateTime Scheduling with Reminders**: Extended `when` parameter to support datetime format with reminders (`YYYY-MM-DD@HH:MM`)
-- **HTTP Transport**: Added optional HTTP transport mode via environment variables (`THINGS_MCP_TRANSPORT`, `THINGS_MCP_HOST`, `THINGS_MCP_PORT`)
+- **HTTP Transport**: Added optional HTTP transport mode via environment variables (`THINGS_MCP_TRANSPORT`, `THINGS_MCP_HOST`, `THINGS_MCP_PORT`). Note: HTTP transport requires running the server directly and is not available when installed via the .mcpb package.
 - **Background Execution Fix**: Changed URL execution from AppleScript to shell script with `open -g` to prevent Things from coming to foreground
 - **Bug Fix**: Fixed `search_advanced` type parameter causing duplicate keyword argument error
 - **MCP Integration Test Plan**: Added Claude-executable integration test plan (`docs/mcp_integration_test_plan.md`) for verifying MCP tools against a live Things database
