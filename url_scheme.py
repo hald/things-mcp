@@ -1,5 +1,4 @@
 import urllib.parse
-import webbrowser
 import subprocess
 import things
 from typing import Optional, Dict, Any, Union
@@ -32,14 +31,14 @@ def format_when_with_reminder(date: str, time: str) -> str:
 def execute_url(url: str) -> None:
     """Execute a Things URL without bringing Things to the foreground."""
     try:
+        # Use 'do shell script' with 'open -g' to open in background
         subprocess.run([
-            'osascript', '-e', 
-            f'tell application "Things3" to open location "{url}"'
+            'osascript', '-e',
+            f'do shell script "open -g \\"{url}\\""'
         ], check=True, capture_output=True, text=True)
     except subprocess.CalledProcessError:
-        # Fallback to webbrowser if osascript fails
-        import webbrowser
-        webbrowser.open(url)
+        # Fallback - still try with open -g directly
+        subprocess.run(['open', '-g', url], check=True)
 
 def construct_url(command: str, params: Dict[str, Any]) -> str:
     """Construct a Things URL from command and parameters."""

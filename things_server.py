@@ -1,5 +1,6 @@
 from typing import List
 import logging
+import os
 import things
 from fastmcp import FastMCP
 from formatters import format_todo, format_project, format_area, format_tag
@@ -8,6 +9,11 @@ import url_scheme
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
+
+# Transport configuration via environment variables
+TRANSPORT = os.environ.get("THINGS_MCP_TRANSPORT", "stdio")  # "stdio" or "http"
+HTTP_HOST = os.environ.get("THINGS_MCP_HOST", "127.0.0.1")
+HTTP_PORT = int(os.environ.get("THINGS_MCP_PORT", "8000"))
 
 # Initialize FastMCP server
 mcp = FastMCP("Things")
@@ -205,10 +211,11 @@ async def search_advanced(
     deadline: str = None,
     tag: str = None,
     area: str = None,
-    type: str = None
+    type: str = None,
+    last: str = None
 ) -> str:
     """Advanced todo search with multiple filters
-    
+
     Args:
         status: Filter by todo status (incomplete, completed, canceled)
         start_date: Filter by start date (YYYY-MM-DD)
@@ -216,6 +223,7 @@ async def search_advanced(
         tag: Filter by tag
         area: Filter by area UUID
         type: Filter by item type (to-do, project, heading)
+        last: Filter by creation date (e.g., '3d' for last 3 days, '1w' for last week, '1y' for last year)
     """
     search_params = {}
     if status:
@@ -228,10 +236,15 @@ async def search_advanced(
         search_params["tag"] = tag
     if area:
         search_params["area"] = area
+    if last:
+        search_params["last"] = last
+
     if type:
-        search_params["type"] = type
-    
-    todos = things.todos(include_items=True, **search_params)
+        # Use things.tasks() when type is specified since things.todos()
+        # hardcodes type="to-do"
+        todos = things.tasks(type=type, include_items=True, **search_params)
+    else:
+        todos = things.todos(include_items=True, **search_params)
     if not todos:
         return "No matching todos found"
     
@@ -453,4 +466,7 @@ async def search_items(query: str) -> str:
     return f"Searching for '{query}'"
 
 if __name__ == "__main__":
-    mcp.run()
+    if TRANSPORT == "http":
+        mcp.run(transport="http", host=HTTP_HOST, port=HTTP_PORT)
+    else:
+        mcp.run()

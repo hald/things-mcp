@@ -63,7 +63,7 @@ Age is displayed in natural language:
 
 MCP Bundles (.mcpb) provide the easiest way to install MCP servers.
 
-1. Download the latest `things-mcp-0.5.0.mcpb` file from the [releases page](https://github.com/hald/things-mcp/releases)
+1. Download the latest `things-mcp-0.6.0.mcpb` file from the [releases page](https://github.com/hald/things-mcp/releases)
 2. Double-click the `.mcpb` file to install it in Claude Desktop
 3. The extension will be automatically configured and ready to use
 
@@ -141,9 +141,16 @@ After installation:
 - `tag` - Filter by tag
 - `area` - Filter by area UUID
 - `type` - Filter by item type (to-do/project/heading)
+- `last` - Filter by creation date (e.g., '3d' for last 3 days, '1w' for last week)
 
 ### get-recent
 - `period` - Time period (e.g., '3d', '1w', '2m', '1y')
+
+### Scheduling with Reminders (add-todo, add-project, update-todo, update-project)
+- `when` - Accepts multiple formats:
+  - Keywords: `today`, `tomorrow`, `evening`, `anytime`, `someday`
+  - Date: `YYYY-MM-DD` (e.g., `2024-01-15`)
+  - DateTime with reminder: `YYYY-MM-DD@HH:MM` (e.g., `2024-01-15@14:30`)
 
 ## Manual Installation
 
@@ -289,6 +296,12 @@ uv run pytest tests/test_url_scheme.py
 uv run pytest -k "test_add_todo"
 ```
 
+### MCP Integration Test
+
+The project includes an integration test plan that can be executed by Claude (via Claude Cowork or Claude Code) to verify all MCP tools work correctly against a live Things database.
+
+See [`docs/mcp_integration_test_plan.md`](docs/mcp_integration_test_plan.md) for the full test plan.
+
 ### Project Structure
 
 ```
@@ -300,8 +313,35 @@ things-mcp/
 │   ├── conftest.py      # Test fixtures and configuration
 │   ├── test_url_scheme.py
 │   └── test_formatters.py
+├── docs/                # Documentation
+│   └── mcp_integration_test_plan.md  # Claude-executable integration test
 ├── manifest.json        # MCPB package manifest
 ├── build_mcpb.sh        # MCPB package build script
 ├── pyproject.toml       # Project dependencies and pytest config
+├── .env.example         # Sample environment configuration
 └── run.sh               # Convenience runner script
 ```
+
+### HTTP Transport
+
+By default, the server uses stdio transport for communication with MCP clients. For remote access scenarios, you can run the server with HTTP transport.
+
+#### Configuration
+
+Set these environment variables to enable HTTP transport:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `THINGS_MCP_TRANSPORT` | `stdio` | Transport type: `stdio` or `http` |
+| `THINGS_MCP_HOST` | `127.0.0.1` | HTTP server bind address |
+| `THINGS_MCP_PORT` | `8000` | HTTP server port |
+
+#### Example
+
+```bash
+THINGS_MCP_TRANSPORT=http THINGS_MCP_HOST=0.0.0.0 THINGS_MCP_PORT=8000 uv run things_server.py
+```
+
+See `.env.example` for a sample configuration file.
+
+> **Note:** HTTP transport requires running the server directly with `uv run things_server.py`. It is not available when installed via the `.mcpb` package, which uses stdio transport for Claude Desktop integration.

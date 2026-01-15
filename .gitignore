@@ -9,6 +9,9 @@ wheels/
 # Virtual environments
 .venv
 
+# Environment files
+.env
+
 # DXT build artifacts
 /server/
 *.dxt
