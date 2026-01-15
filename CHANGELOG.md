@@ -9,6 +9,11 @@
 - **Bug Fix**: Fixed `search_advanced` type parameter causing duplicate keyword argument error
 - **MCP Integration Test Plan**: Added Claude-executable integration test plan (`docs/mcp_integration_test_plan.md`) for verifying MCP tools against a live Things database
 
+## v0.5.0 - 2025-12-15
+
+- **MCPB Package Format**: Migrated from DXT to MCPB package format for Claude Desktop extensions, using uv for runtime dependency resolution
+- **Human-Readable Age Display**: Tasks now show "Age: X ago" and "Last modified: X ago" in natural language (e.g., "3 days ago", "2 weeks ago")
+
 ## v0.4.0 - 2025-08-18
 
 - **DXT Package Support**: Added automated packaging system with manifest.json configuration
