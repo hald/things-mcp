@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 import logging
 import os
 import things
@@ -20,7 +20,13 @@ mcp = FastMCP("Things")
 
 # List view tools
 @mcp.tool
-async def get_inbox() -> str:
+async def get_inbox(
+    chatInput: Optional[str] = None,
+    sessionId: Optional[str] = None,
+    user: Optional[str] = None,
+    toolCallId: Optional[str] = None,
+    Prompt__User_Message_: Optional[str] = None
+) -> str:
     """Get todos from Inbox"""
     todos = things.inbox(include_items=True)
     if not todos:
@@ -29,7 +35,13 @@ async def get_inbox() -> str:
     return "\n\n---\n\n".join(formatted_todos)
 
 @mcp.tool
-async def get_today() -> str:
+async def get_today(
+    chatInput: Optional[str] = None,
+    sessionId: Optional[str] = None,
+    user: Optional[str] = None,
+    toolCallId: Optional[str] = None,
+    Prompt__User_Message_: Optional[str] = None
+) -> str:
     """Get todos due today"""
     todos = things.today(include_items=True)
     if not todos:
@@ -38,7 +50,13 @@ async def get_today() -> str:
     return "\n\n---\n\n".join(formatted_todos)
 
 @mcp.tool
-async def get_upcoming() -> str:
+async def get_upcoming(
+    chatInput: Optional[str] = None,
+    sessionId: Optional[str] = None,
+    user: Optional[str] = None,
+    toolCallId: Optional[str] = None,
+    Prompt__User_Message_: Optional[str] = None
+) -> str:
     """Get upcoming todos"""
     todos = things.upcoming(include_items=True)
     if not todos:
@@ -47,7 +65,13 @@ async def get_upcoming() -> str:
     return "\n\n---\n\n".join(formatted_todos)
 
 @mcp.tool
-async def get_anytime() -> str:
+async def get_anytime(
+    chatInput: Optional[str] = None,
+    sessionId: Optional[str] = None,
+    user: Optional[str] = None,
+    toolCallId: Optional[str] = None,
+    Prompt__User_Message_: Optional[str] = None
+) -> str:
     """Get todos from Anytime list"""
     todos = things.anytime(include_items=True)
     if not todos:
@@ -56,7 +80,13 @@ async def get_anytime() -> str:
     return "\n\n---\n\n".join(formatted_todos)
 
 @mcp.tool
-async def get_someday() -> str:
+async def get_someday(
+    chatInput: Optional[str] = None,
+    sessionId: Optional[str] = None,
+    user: Optional[str] = None,
+    toolCallId: Optional[str] = None,
+    Prompt__User_Message_: Optional[str] = None
+) -> str:
     """Get todos from Someday list"""
     todos = things.someday(include_items=True)
     if not todos:
@@ -65,7 +95,15 @@ async def get_someday() -> str:
     return "\n\n---\n\n".join(formatted_todos)
 
 @mcp.tool
-async def get_logbook(period: str = "7d", limit: int = 50) -> str:
+async def get_logbook(
+    period: str = "7d",
+    limit: int = 50,
+    chatInput: Optional[str] = None,
+    sessionId: Optional[str] = None,
+    user: Optional[str] = None,
+    toolCallId: Optional[str] = None,
+    Prompt__User_Message_: Optional[str] = None
+) -> str:
     """Get completed todos from Logbook, defaults to last 7 days
     
     Args:
@@ -81,7 +119,13 @@ async def get_logbook(period: str = "7d", limit: int = 50) -> str:
     return "\n\n---\n\n".join(formatted_todos)
 
 @mcp.tool
-async def get_trash() -> str:
+async def get_trash(
+    chatInput: Optional[str] = None,
+    sessionId: Optional[str] = None,
+    user: Optional[str] = None,
+    toolCallId: Optional[str] = None,
+    Prompt__User_Message_: Optional[str] = None
+) -> str:
     """Get trashed todos"""
     todos = things.trash(include_items=True)
     if not todos:
@@ -91,7 +135,15 @@ async def get_trash() -> str:
 
 # Basic operations
 @mcp.tool
-async def get_todos(project_uuid: str = None, include_items: bool = True) -> str:
+async def get_todos(
+    project_uuid: str = None,
+    include_items: bool = True,
+    chatInput: Optional[str] = None,
+    sessionId: Optional[str] = None,
+    user: Optional[str] = None,
+    toolCallId: Optional[str] = None,
+    Prompt__User_Message_: Optional[str] = None
+) -> str:
     """Get todos from Things, optionally filtered by project
     
     Args:
@@ -111,7 +163,14 @@ async def get_todos(project_uuid: str = None, include_items: bool = True) -> str
     return "\n\n---\n\n".join(formatted_todos)
 
 @mcp.tool
-async def get_projects(include_items: bool = False) -> str:
+async def get_projects(
+    include_items: bool = False,
+    chatInput: Optional[str] = None,
+    sessionId: Optional[str] = None,
+    user: Optional[str] = None,
+    toolCallId: Optional[str] = None,
+    Prompt__User_Message_: Optional[str] = None
+) -> str:
     """Get all projects from Things
     
     Args:
@@ -125,7 +184,14 @@ async def get_projects(include_items: bool = False) -> str:
     return "\n\n---\n\n".join(formatted_projects)
 
 @mcp.tool
-async def get_areas(include_items: bool = False) -> str:
+async def get_areas(
+    include_items: bool = False,
+    chatInput: Optional[str] = None,
+    sessionId: Optional[str] = None,
+    user: Optional[str] = None,
+    toolCallId: Optional[str] = None,
+    Prompt__User_Message_: Optional[str] = None
+) -> str:
     """Get all areas from Things
     
     Args:
@@ -140,7 +206,14 @@ async def get_areas(include_items: bool = False) -> str:
 
 # Tag operations
 @mcp.tool
-async def get_tags(include_items: bool = False) -> str:
+async def get_tags(
+    include_items: bool = False,
+    chatInput: Optional[str] = None,
+    sessionId: Optional[str] = None,
+    user: Optional[str] = None,
+    toolCallId: Optional[str] = None,
+    Prompt__User_Message_: Optional[str] = None
+) -> str:
     """Get all tags
     
     Args:
@@ -154,7 +227,14 @@ async def get_tags(include_items: bool = False) -> str:
     return "\n\n---\n\n".join(formatted_tags)
 
 @mcp.tool
-async def get_tagged_items(tag: str) -> str:
+async def get_tagged_items(
+    tag: str,
+    chatInput: Optional[str] = None,
+    sessionId: Optional[str] = None,
+    user: Optional[str] = None,
+    toolCallId: Optional[str] = None,
+    Prompt__User_Message_: Optional[str] = None
+) -> str:
     """Get items with a specific tag
     
     Args:
@@ -168,7 +248,14 @@ async def get_tagged_items(tag: str) -> str:
     return "\n\n---\n\n".join(formatted_todos)
 
 @mcp.tool
-async def get_headings(project_uuid: str = None) -> str:
+async def get_headings(
+    project_uuid: str = None,
+    chatInput: Optional[str] = None,
+    sessionId: Optional[str] = None,
+    user: Optional[str] = None,
+    toolCallId: Optional[str] = None,
+    Prompt__User_Message_: Optional[str] = None
+) -> str:
     """Get headings from Things
     
     Args:
@@ -191,7 +278,14 @@ async def get_headings(project_uuid: str = None) -> str:
 
 # Search operations
 @mcp.tool
-async def search_todos(query: str) -> str:
+async def search_todos(
+    query: str,
+    chatInput: Optional[str] = None,
+    sessionId: Optional[str] = None,
+    user: Optional[str] = None,
+    toolCallId: Optional[str] = None,
+    Prompt__User_Message_: Optional[str] = None
+) -> str:
     """Search todos by title or notes
     
     Args:
@@ -212,7 +306,12 @@ async def search_advanced(
     tag: str = None,
     area: str = None,
     type: str = None,
-    last: str = None
+    last: str = None,
+    chatInput: Optional[str] = None,
+    sessionId: Optional[str] = None,
+    user: Optional[str] = None,
+    toolCallId: Optional[str] = None,
+    Prompt__User_Message_: Optional[str] = None
 ) -> str:
     """Advanced todo search with multiple filters
 
@@ -253,7 +352,14 @@ async def search_advanced(
 
 # Recent items
 @mcp.tool
-async def get_recent(period: str) -> str:
+async def get_recent(
+    period: str,
+    chatInput: Optional[str] = None,
+    sessionId: Optional[str] = None,
+    user: Optional[str] = None,
+    toolCallId: Optional[str] = None,
+    Prompt__User_Message_: Optional[str] = None
+) -> str:
     """Get recently created items
     
     Args:
@@ -278,7 +384,12 @@ async def add_todo(
     list_id: str = None,
     list_title: str = None,
     heading: str = None,
-    heading_id: str = None
+    heading_id: str = None,
+    chatInput: Optional[str] = None,
+    sessionId: Optional[str] = None,
+    user: Optional[str] = None,
+    toolCallId: Optional[str] = None,
+    Prompt__User_Message_: Optional[str] = None
 ) -> str:
     """Create a new todo in Things
     
@@ -319,7 +430,12 @@ async def add_project(
     tags: List[str] = None,
     area_id: str = None,
     area_title: str = None,
-    todos: List[str] = None
+    todos: List[str] = None,
+    chatInput: Optional[str] = None,
+    sessionId: Optional[str] = None,
+    user: Optional[str] = None,
+    toolCallId: Optional[str] = None,
+    Prompt__User_Message_: Optional[str] = None
 ) -> str:
     """Create a new project in Things
     
@@ -360,7 +476,12 @@ async def update_todo(
     list: str = None,
     list_id: str = None,
     heading: str = None,
-    heading_id: str = None
+    heading_id: str = None,
+    chatInput: Optional[str] = None,
+    sessionId: Optional[str] = None,
+    user: Optional[str] = None,
+    toolCallId: Optional[str] = None,
+    Prompt__User_Message_: Optional[str] = None
 ) -> str:
     """Update an existing todo in Things
 
@@ -405,7 +526,12 @@ async def update_project(
     deadline: str = None,
     tags: List[str] = None,
     completed: bool = None,
-    canceled: bool = None
+    canceled: bool = None,
+    chatInput: Optional[str] = None,
+    sessionId: Optional[str] = None,
+    user: Optional[str] = None,
+    toolCallId: Optional[str] = None,
+    Prompt__User_Message_: Optional[str] = None
 ) -> str:
     """Update an existing project in Things
     
@@ -437,7 +563,12 @@ async def update_project(
 async def show_item(
     id: str,
     query: str = None,
-    filter_tags: List[str] = None
+    filter_tags: List[str] = None,
+    chatInput: Optional[str] = None,
+    sessionId: Optional[str] = None,
+    user: Optional[str] = None,
+    toolCallId: Optional[str] = None,
+    Prompt__User_Message_: Optional[str] = None
 ) -> str:
     """Show a specific item or list in Things
     
@@ -455,7 +586,14 @@ async def show_item(
     return f"Showing item: {id}"
 
 @mcp.tool
-async def search_items(query: str) -> str:
+async def search_items(
+    query: str,
+    chatInput: Optional[str] = None,
+    sessionId: Optional[str] = None,
+    user: Optional[str] = None,
+    toolCallId: Optional[str] = None,
+    Prompt__User_Message_: Optional[str] = None
+) -> str:
     """Search for items in Things
     
     Args:
