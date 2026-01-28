@@ -4,6 +4,19 @@ version = "0.6.0"
 description = "Things app Model Context Protocol (MCP) server"
 readme = "README.md"
 requires-python = ">=3.12"
+license = "MIT"
+keywords = ["things", "mcp", "model-context-protocol", "task-management", "macos"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: MacOS X",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Office/Business :: Scheduling",
+]
 dependencies = [
     "httpx>=0.28.1",
     "fastmcp>=2.0.0",
@@ -16,6 +29,21 @@ test = [
     "pytest-asyncio>=0.24.0",
     "pytest-mock>=3.14.0",
 ]
+
+[project.scripts]
+things-mcp = "things_mcp.server:main"
+
+[project.urls]
+Homepage = "https://github.com/hald/things-mcp"
+Repository = "https://github.com/hald/things-mcp"
+Issues = "https://github.com/hald/things-mcp/issues"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/things_mcp"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

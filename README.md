@@ -59,17 +59,49 @@ Age is displayed in natural language:
 - Things 3 app with "Enable Things URLs" turned on (Settings → General)
 - [uv](https://docs.astral.sh/uv/) Python package manager: `brew install uv`
 
-### MCPB Installation (Recommended for Claude Desktop)
+### Quick Install with uvx (Recommended)
 
-MCP Bundles (.mcpb) provide the easiest way to install MCP servers.
+The easiest way to use Things MCP is with `uvx`, which runs the package directly without manual installation:
+
+#### For Claude Desktop:
+
+1. Open Claude Desktop
+2. Go to **Claude → Settings → Developer → Edit Config**
+3. Add the Things server:
+
+```json
+{
+  "mcpServers": {
+    "things": {
+      "command": "uvx",
+      "args": ["things-mcp"]
+    }
+  }
+}
+```
+
+4. Save the file and restart Claude Desktop
+
+#### For Claude Code:
+
+```bash
+claude mcp add-json things '{"command":"uvx","args":["things-mcp"]}'
+```
+
+To make it available globally (across all projects), add `-s user`:
+```bash
+claude mcp add-json -s user things '{"command":"uvx","args":["things-mcp"]}'
+```
+
+### MCPB Installation (Alternative for Claude Desktop)
+
+MCP Bundles (.mcpb) provide another way to install MCP servers.
 
 1. Download the latest `things-mcp-0.6.0.mcpb` file from the [releases page](https://github.com/hald/things-mcp/releases)
 2. Double-click the `.mcpb` file to install it in Claude Desktop
 3. The extension will be automatically configured and ready to use
 
 The MCPB package uses `uv` to automatically resolve and install the correct Python dependencies for your system architecture.
-
-To setup Things MCP with Claude Code or other MCP clients, scroll down to the Manual Installation section.
 
 ### Verify it's working
 
@@ -195,7 +227,7 @@ uv sync
         "--directory",
         "/Users/yourusername/things-mcp",
         "run",
-        "things_server.py"
+        "things-mcp"
       ]
     }
   }
@@ -219,14 +251,14 @@ which uv
 
 In your terminal, run:
 ```bash
-claude mcp add-json things '{"command":"uv","args":["--directory","/path/to/things-mcp","run","things_server.py"]}'
+claude mcp add-json things '{"command":"uv","args":["--directory","/path/to/things-mcp","run","things-mcp"]}'
 ```
 
 **Replace `/path/to/things-mcp` with your actual path from Step 1!**
 
 To make it available globally (across all projects), add `-s user`:
 ```bash
-claude mcp add-json -s user things '{"command":"uv","args":["--directory","/path/to/things-mcp","run","things_server.py"]}'
+claude mcp add-json -s user things '{"command":"uv","args":["--directory","/path/to/things-mcp","run","things-mcp"]}'
 ```
 
 ### Step 4: Verify it's working
@@ -306,9 +338,12 @@ See [`docs/mcp_integration_test_plan.md`](docs/mcp_integration_test_plan.md) for
 
 ```
 things-mcp/
-├── things_server.py     # Main MCP server implementation
-├── url_scheme.py        # Things URL scheme implementation
-├── formatters.py        # Data formatting utilities
+├── src/things_mcp/      # Main package
+│   ├── __init__.py      # Package exports
+│   ├── __main__.py      # Entry point for python -m
+│   ├── server.py        # MCP server implementation
+│   ├── url_scheme.py    # Things URL scheme implementation
+│   └── formatters.py    # Data formatting utilities
 ├── tests/               # Unit tests
 │   ├── conftest.py      # Test fixtures and configuration
 │   ├── test_url_scheme.py
@@ -317,7 +352,7 @@ things-mcp/
 │   └── mcp_integration_test_plan.md  # Claude-executable integration test
 ├── manifest.json        # MCPB package manifest
 ├── build_mcpb.sh        # MCPB package build script
-├── pyproject.toml       # Project dependencies and pytest config
+├── pyproject.toml       # Project dependencies, build config, and pytest config
 ├── .env.example         # Sample environment configuration
 └── run.sh               # Convenience runner script
 ```
@@ -339,9 +374,11 @@ Set these environment variables to enable HTTP transport:
 #### Example
 
 ```bash
-THINGS_MCP_TRANSPORT=http THINGS_MCP_HOST=0.0.0.0 THINGS_MCP_PORT=8000 uv run things_server.py
+# Using uvx
+THINGS_MCP_TRANSPORT=http THINGS_MCP_HOST=0.0.0.0 THINGS_MCP_PORT=8000 uvx things-mcp
+
+# Or from source
+THINGS_MCP_TRANSPORT=http THINGS_MCP_HOST=0.0.0.0 THINGS_MCP_PORT=8000 uv run things-mcp
 ```
 
 See `.env.example` for a sample configuration file.
-
-> **Note:** HTTP transport requires running the server directly with `uv run things_server.py`. It is not available when installed via the `.mcpb` package, which uses stdio transport for Claude Desktop integration.

@@ -1,5 +1,5 @@
 import pytest
-from things_server import get_headings
+from things_mcp.server import get_headings
 
 
 @pytest.mark.asyncio

@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import patch, Mock
 import subprocess
-from url_scheme import (
+from things_mcp.url_scheme import (
     execute_url, construct_url, add_todo, add_project,
     update_todo, update_project, show, search, format_when_with_reminder
 )
