@@ -18,56 +18,41 @@ If you find this project helpful, consider supporting its development:
 - Project and area management
 - Tag operations
 - Advanced search capabilities
-- Recent items tracking
+- Recent items
 - Detailed item information including checklists
 - Support for nested data (projects within areas, todos within projects)
-- **Human-readable age display** - See how long tasks have been created and when they were last modified
-  - Shows task age in natural language (e.g., "3 days ago", "2 weeks ago")
-  - Displays both creation age and modification age
-  - Helps identify stale tasks and recently updated items
 
-### Task Age Display
-
-When viewing tasks, the server automatically calculates and displays human-readable ages:
-
-```
-Title: Prepare presentation
-Created: 2025-11-09T10:30:00
-Age: 1 week ago
-Modified: 2025-11-15T14:20:00
-Last modified: 1 day ago
-```
-
-This makes it easy to:
-- Identify tasks that have been sitting for a long time
-- See recently created tasks at a glance
-- Track when tasks were last updated
-- Make better decisions about task prioritization
-
-Age is displayed in natural language:
-- **Same day**: "today"
-- **Recent days**: "3 days ago"
-- **Recent weeks**: "2 weeks ago"
-- **Recent months**: "3 months ago"
-- **Years**: "2 years ago"
 
 ## Installation
 
 ### Prerequisites
 - macOS (Things 3 is Mac-only)
-- A MCP client, such as Claude Desktop or Claude Code
 - Things 3 app with "Enable Things URLs" turned on (Settings → General)
+- A MCP client, such as Claude Desktop or Claude Code
 - [uv](https://docs.astral.sh/uv/) Python package manager: `brew install uv`
 
-### Quick Install with uvx (Recommended)
+### Install via uvx (Any MCP Client)
 
-The easiest way to use Things MCP is with `uvx`, which runs the package directly without manual installation:
+Things MCP is published on PyPI and can be run directly with `uvx`:
 
-#### For Claude Desktop:
+```bash
+uvx things-mcp
+```
 
-1. Open Claude Desktop
-2. Go to **Claude → Settings → Developer → Edit Config**
-3. Add the Things server:
+Configure your MCP client to use `uvx` with `things-mcp` as the argument.
+
+### Claude Desktop
+
+#### Option 1: One-Click Install (Recommended)
+
+1. Download the latest file from the [releases page](https://github.com/hald/things-mcp/releases)
+2. Double-click the `.mcpb` file
+3. Done!
+
+#### Option 2: Manual Config
+
+1. Go to **Claude → Settings → Developer → Edit Config**
+2. Add the Things server:
 
 ```json
 {
@@ -80,9 +65,9 @@ The easiest way to use Things MCP is with `uvx`, which runs the package directly
 }
 ```
 
-4. Save the file and restart Claude Desktop
+3. Save and restart Claude Desktop
 
-#### For Claude Code:
+### Claude Code
 
 ```bash
 claude mcp add-json things '{"command":"uvx","args":["things-mcp"]}'
@@ -92,16 +77,6 @@ To make it available globally (across all projects), add `-s user`:
 ```bash
 claude mcp add-json -s user things '{"command":"uvx","args":["things-mcp"]}'
 ```
-
-### MCPB Installation (Alternative for Claude Desktop)
-
-MCP Bundles (.mcpb) provide another way to install MCP servers.
-
-1. Download the latest `things-mcp-0.6.0.mcpb` file from the [releases page](https://github.com/hald/things-mcp/releases)
-2. Double-click the `.mcpb` file to install it in Claude Desktop
-3. The extension will be automatically configured and ready to use
-
-The MCPB package uses `uv` to automatically resolve and install the correct Python dependencies for your system architecture.
 
 ### Verify it's working
 
@@ -122,9 +97,9 @@ After installation:
 * Use task ages to identify stale items: "Which tasks in my Anytime list are older than 2 weeks?"
 
 
-### Available Tools
+## Available Tools
 
-#### List Views
+### List Views
 - `get-inbox` - Get todos from Inbox
 - `get-today` - Get todos due today
 - `get-upcoming` - Get upcoming todos
@@ -133,23 +108,23 @@ After installation:
 - `get-logbook` - Get completed todos
 - `get-trash` - Get trashed todos
 
-#### Basic Operations
+### Basic Operations
 - `get-todos` - Get todos, optionally filtered by project
 - `get-projects` - Get all projects
 - `get-areas` - Get all areas
 
-#### Tag Operations
+### Tag Operations
 - `get-tags` - Get all tags
 - `get-tagged-items` - Get items with a specific tag
 
-#### Search Operations
+### Search Operations
 - `search-todos` - Simple search by title/notes
 - `search-advanced` - Advanced search with multiple filters
 
-#### Time-based Operations
+### Time-based Operations
 - `get-recent` - Get recently created items
 
-#### Things URL Scheme Operations
+### Things URL Scheme Operations
 - `add-todo` - Create a new todo
 - `add-project` - Create a new project
 - `update-todo` - Update an existing todo
@@ -184,90 +159,7 @@ After installation:
   - Date: `YYYY-MM-DD` (e.g., `2024-01-15`)
   - DateTime with reminder: `YYYY-MM-DD@HH:MM` (e.g., `2024-01-15@14:30`)
 
-## Manual Installation
-
-For advanced users who prefer to install from source:
-
-### Step 1: Clone the repository
-
-Choose a location where you want to install Things MCP. For example, to install in your home directory:
-
-```bash
-cd ~
-git clone https://github.com/hald/things-mcp
-cd things-mcp
-```
-
-**Important**: Remember this location! You'll need the full path. You can get it by running:
-```bash
-pwd
-```
-This will show something like: `/Users/yourusername/things-mcp`
-
-### Step 2: Install dependencies
-
-```bash
-uv sync
-```
-
-### Step 3: Configure Claude
-
-#### For Claude Desktop:
-
-1. Open Claude Desktop
-2. Go to **Claude → Settings → Developer → Edit Config**
-3. Add the Things server to the `mcpServers` section:
-
-```json
-{
-  "mcpServers": {
-    "things": {
-      "command": "uv",
-      "args": [
-        "--directory",
-        "/Users/yourusername/things-mcp",
-        "run",
-        "things-mcp"
-      ]
-    }
-  }
-}
-```
-
-**Replace `/Users/yourusername/things-mcp` with your actual path from Step 1!**
-
-**Note**: If you installed uv outside of Homebrew, you may need to use the full path to uv in your MCP configuration. Common locations include:
-- pip install: Usually in your Python environment's bin directory
-- Standalone installer: `~/.local/bin/uv` or `~/.cargo/bin/uv`
-
-To find your uv location, run:
-```bash
-which uv
-```
-
-4. Save the file and restart Claude Desktop
-
-#### For Claude Code:
-
-In your terminal, run:
-```bash
-claude mcp add-json things '{"command":"uv","args":["--directory","/path/to/things-mcp","run","things-mcp"]}'
-```
-
-**Replace `/path/to/things-mcp` with your actual path from Step 1!**
-
-To make it available globally (across all projects), add `-s user`:
-```bash
-claude mcp add-json -s user things '{"command":"uv","args":["--directory","/path/to/things-mcp","run","things-mcp"]}'
-```
-
-### Step 4: Verify it's working
-
-After restarting your MCP client:
-- If using Claude Desktop, you should see "Things 3" in the "Search and tools" list
-- Try asking: "What's in my Things inbox?"
-
-### Troubleshooting
+## Troubleshooting
 
 If it's not working:
 
@@ -276,34 +168,6 @@ If it's not working:
 
 2. **Check that "Enable Things URLs" is turned on**
    - Open Things → Settings → General → Enable Things URLs
-
-3. **Verify the path in your configuration matches where you cloned the repository**
-   - The path must be absolute (starting with `/`)
-   - Run `pwd` in the things-mcp directory to get the correct path
-
-4. **Check Claude's logs for errors:**
-   ```bash
-   tail -n 20 -f ~/Library/Logs/Claude/mcp*.log
-   ```
-
-5. **Common issues:**
-   - "Could not attach to MCP" - Usually means the path is wrong
-   - "spawn uv ENOENT" - Make sure uv was installed with Homebrew (`brew install uv`)
-   - "No module named 'things'" - Run `uv sync` in the things-mcp directory
-   - "Command not found: uv" - Install uv with Homebrew: `brew install uv`
-
-6. **MCPB-specific issues:**
-   - "No module named 'pydantic_core'" or similar binary module errors - Install uv (`brew install uv`) and restart Claude Desktop. The MCPB package requires uv to resolve dependencies at runtime.
-
-### Updating
-
-To update to the latest version:
-```bash
-cd ~/things-mcp  # or wherever you installed it
-git pull
-uv sync
-```
-Then restart Claude.
 
 ## Development
 
