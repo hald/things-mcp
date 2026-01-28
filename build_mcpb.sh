@@ -20,14 +20,27 @@ cp manifest.json "$TEMP_DIR/"
 mkdir -p "$TEMP_DIR/server"
 
 # Copy source files to temp server directory (with proper naming)
+# Convert relative imports to absolute imports for flat MCPB structure
 echo "Copying source files..."
-cp things_server.py "$TEMP_DIR/server/main.py"
-cp url_scheme.py "$TEMP_DIR/server/"
-cp formatters.py "$TEMP_DIR/server/"
+sed 's/from \.formatters import/from formatters import/; s/from \. import url_scheme/import url_scheme/' \
+    src/things_mcp/server.py > "$TEMP_DIR/server/main.py"
+cp src/things_mcp/url_scheme.py "$TEMP_DIR/server/"
+cp src/things_mcp/formatters.py "$TEMP_DIR/server/"
 
-# Copy pyproject.toml so uv can resolve dependencies at runtime
-echo "Copying pyproject.toml for uv dependency resolution..."
-cp pyproject.toml "$TEMP_DIR/server/"
+# Create minimal pyproject.toml for uv dependency resolution
+# (stripped of build system config that breaks in flat MCPB structure)
+echo "Creating minimal pyproject.toml for dependencies..."
+cat > "$TEMP_DIR/server/pyproject.toml" << 'EOF'
+[project]
+name = "things-mcp"
+version = "0.7.0"
+requires-python = ">=3.12"
+dependencies = [
+    "httpx>=0.28.1",
+    "fastmcp>=2.0.0",
+    "things-py>=0.0.15",
+]
+EOF
 
 # Extract version from manifest.json
 VERSION=$(grep '"version"' manifest.json | head -1 | sed 's/.*"version": *"\([^"]*\)".*/\1/')
