@@ -1,5 +1,5 @@
 import pytest
-from things_server import get_todos, get_today, search_todos, search_advanced
+from things_mcp.server import get_todos, get_today, search_todos, search_advanced
 
 
 @pytest.mark.asyncio

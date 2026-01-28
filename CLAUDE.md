@@ -10,10 +10,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 uv sync
 
 # Run the MCP server (stdio transport, default)
-uv run things_server.py
+uv run things-mcp
 
 # Run with HTTP transport
-THINGS_MCP_TRANSPORT=http uv run things_server.py
+THINGS_MCP_TRANSPORT=http uv run things-mcp
 ```
 
 ### Testing
@@ -48,19 +48,19 @@ Test coverage includes:
 
 This is a Model Context Protocol (MCP) server that bridges Claude Desktop with the Things 3 task management app on macOS. The architecture consists of:
 
-1. **things_server.py** - Main MCP server implementation using FastMCP framework
+1. **src/things_mcp/server.py** - Main MCP server implementation using FastMCP framework
    - Defines all MCP tools for interacting with Things
    - List views (inbox, today, upcoming, etc.)
    - CRUD operations for todos/projects/areas
    - Search and tag operations
    - Things URL scheme integration
 
-2. **url_scheme.py** - Things URL scheme implementation
+2. **src/things_mcp/url_scheme.py** - Things URL scheme implementation
    - Constructs Things URLs for various operations
    - Uses shell script with `open -g` to execute URLs without bringing Things to foreground
    - Handles authentication tokens for update operations
 
-3. **formatters.py** - Data formatting utilities
+3. **src/things_mcp/formatters.py** - Data formatting utilities
    - Converts Things database objects to human-readable text
    - Handles nested data (projects within areas, checklist items, etc.)
 

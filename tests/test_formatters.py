@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import patch
 from datetime import datetime, timedelta
-from formatters import format_todo, format_project, format_area, format_tag, format_heading, _calculate_age
+from things_mcp.formatters import format_todo, format_project, format_area, format_tag, format_heading, _calculate_age
 
 
 class TestCalculateAge:
