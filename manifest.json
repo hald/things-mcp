@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "things-mcp",
   "display_name": "Things MCP",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Model Context Protocol server for Things 3 task management app",
   "long_description": "This extension provides comprehensive task management capabilities through the Things 3 app. It allows you to view, create, update, and search todos, projects, areas, and tags.",
   "author": {
@@ -12,10 +12,10 @@
   },
   "server": {
     "type": "python",
-    "entry_point": "server/main.py",
+    "entry_point": "server/stub.py",
     "mcp_config": {
-      "command": "uv",
-      "args": ["--directory", "${__dirname}/server", "run", "--with", "fastmcp", "fastmcp", "run", "main.py"]
+      "command": "uvx",
+      "args": ["things-mcp"]
     }
   },
   "tools": [
