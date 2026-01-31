@@ -7,7 +7,7 @@ from .formatters import format_todo, format_project, format_area, format_tag, fo
 from . import url_scheme
 
 # Configure logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Transport configuration via environment variables

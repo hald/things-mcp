@@ -169,6 +169,10 @@ If it's not working:
 2. **Check that "Enable Things URLs" is turned on**
    - Open Things → Settings → General → Enable Things URLs
 
+3. **Claude Desktop can't find `uvx`**
+   - Install uv globally with Homebrew (`brew install uv`) 
+   - **Alternative**: Use the full path to `uvx` in your config. Find it with `which uvx` (typically `/Users/USERNAME/.local/bin/uvx`)
+
 ## Development
 
 ### Running Tests
