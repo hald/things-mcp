@@ -248,7 +248,7 @@ class TestFormatTodo:
         result = format_todo(todo)
 
         assert "Heading: Feature Heading" in result
-        mock_get.assert_called_once_with('heading-uuid')
+        mock_get.assert_any_call('heading-uuid')
     
     def test_format_todo_with_tags(self):
         """Test formatting todo with tags."""
@@ -290,6 +290,111 @@ class TestFormatTodo:
         
         assert "List: Today" in result
     
+    @patch('things.get')
+    def test_format_todo_inherited_someday_status(self, mock_get):
+        """Test that a task with start=Anytime in a Someday project shows inherited status."""
+        mock_get.return_value = {
+            'title': 'Someday Project',
+            'uuid': 'someday-proj',
+            'start': 'Someday'
+        }
+        todo = {
+            'title': 'Task in Someday project',
+            'uuid': 'task-uuid',
+            'type': 'to-do',
+            'start': 'Anytime',
+            'project': 'someday-proj'
+        }
+        result = format_todo(todo)
+
+        assert "List: Someday (inherited from project)" in result
+        assert "Project: Someday Project" in result
+
+    @patch('things.get')
+    def test_format_todo_no_inheritance_for_active_project(self, mock_get):
+        """Test that a task in an active project shows its own start status."""
+        mock_get.return_value = {
+            'title': 'Active Project',
+            'uuid': 'active-proj',
+            'start': 'Anytime'
+        }
+        todo = {
+            'title': 'Task in active project',
+            'uuid': 'task-uuid',
+            'type': 'to-do',
+            'start': 'Anytime',
+            'project': 'active-proj'
+        }
+        result = format_todo(todo)
+
+        assert "List: Anytime" in result
+        assert "inherited" not in result
+
+    @patch('things.get')
+    def test_format_todo_inherited_someday_via_heading(self, mock_get):
+        """Test that a task under a heading in a Someday project shows inherited status."""
+        def get_item(uuid):
+            if uuid == 'heading-uuid':
+                return {'title': 'go bag ready', 'uuid': 'heading-uuid', 'project': 'someday-proj'}
+            if uuid == 'someday-proj':
+                return {'title': 'Packing list template', 'uuid': 'someday-proj', 'start': 'Someday'}
+            return None
+        mock_get.side_effect = get_item
+
+        todo = {
+            'title': 'Theraband',
+            'uuid': 'task-uuid',
+            'type': 'to-do',
+            'start': 'Anytime',
+            'heading': 'heading-uuid'
+        }
+        result = format_todo(todo)
+
+        assert "List: Someday (inherited from project)" in result
+
+    @patch('things.get')
+    def test_format_todo_heading_in_active_project_no_inheritance(self, mock_get):
+        """Test that a task under a heading in an active project shows its own status."""
+        def get_item(uuid):
+            if uuid == 'heading-uuid':
+                return {'title': 'Some Heading', 'uuid': 'heading-uuid', 'project': 'active-proj'}
+            if uuid == 'active-proj':
+                return {'title': 'Active Project', 'uuid': 'active-proj', 'start': 'Anytime'}
+            return None
+        mock_get.side_effect = get_item
+
+        todo = {
+            'title': 'Normal task',
+            'uuid': 'task-uuid',
+            'type': 'to-do',
+            'start': 'Anytime',
+            'heading': 'heading-uuid'
+        }
+        result = format_todo(todo)
+
+        assert "List: Anytime" in result
+        assert "inherited" not in result
+
+    @patch('things.get')
+    def test_format_todo_already_someday_no_annotation(self, mock_get):
+        """Test that a task already marked Someday doesn't get the inherited annotation."""
+        mock_get.return_value = {
+            'title': 'Someday Project',
+            'uuid': 'someday-proj',
+            'start': 'Someday'
+        }
+        todo = {
+            'title': 'Already someday task',
+            'uuid': 'task-uuid',
+            'type': 'to-do',
+            'start': 'Someday',
+            'project': 'someday-proj'
+        }
+        result = format_todo(todo)
+
+        assert "List: Someday" in result
+        assert "inherited" not in result
+
     @patch('things.get')
     def test_format_todo_complete(self, mock_get, mock_todo):
         """Test formatting todo with all fields using fixture."""

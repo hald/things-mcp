@@ -52,9 +52,30 @@ def format_todo(todo: dict) -> str:
     if todo.get('status'):
         todo_text += f"\nStatus: {todo['status']}"
 
-    # Add start/list location
+    # Look up parent project once (used for both List status and Project display)
+    # For heading-level tasks without a project field, resolve heading -> project
+    parent_project = None
+    if todo.get('project'):
+        try:
+            parent_project = things.get(todo['project'])
+        except Exception:
+            pass
+    elif todo.get('heading'):
+        try:
+            heading_obj = things.get(todo['heading'])
+            if heading_obj and heading_obj.get('project'):
+                parent_project = things.get(heading_obj['project'])
+        except Exception:
+            pass
+
+    # Add start/list location with Someday inheritance
     if todo.get('start'):
-        todo_text += f"\nList: {todo['start']}"
+        effective_start = todo['start']
+        if effective_start != 'Someday' and parent_project and parent_project.get('start') == 'Someday':
+            effective_start = 'Someday'
+            todo_text += f"\nList: {effective_start} (inherited from project)"
+        else:
+            todo_text += f"\nList: {effective_start}"
 
     # Add dates
     if todo.get('start_date'):
@@ -88,13 +109,8 @@ def format_todo(todo: dict) -> str:
         todo_text += f"\nNotes: {todo['notes']}"
 
     # Add project info if present
-    if todo.get('project'):
-        try:
-            project = things.get(todo['project'])
-            if project:
-                todo_text += f"\nProject: {project['title']}"
-        except Exception:
-            pass
+    if parent_project:
+        todo_text += f"\nProject: {parent_project['title']}"
 
     # Add heading info if present
     if todo.get('heading'):
