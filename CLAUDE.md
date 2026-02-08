@@ -54,6 +54,7 @@ This is a Model Context Protocol (MCP) server that bridges Claude Desktop with t
    - CRUD operations for todos/projects/areas
    - Search and tag operations
    - Things URL scheme integration
+   - Implements Someday project filtering to match Things UI behavior
 
 2. **src/things_mcp/url_scheme.py** - Things URL scheme implementation
    - Constructs Things URLs for various operations
@@ -64,12 +65,14 @@ This is a Model Context Protocol (MCP) server that bridges Claude Desktop with t
    - Converts Things database objects to human-readable text
    - Handles nested data (projects within areas, checklist items, etc.)
 
-4. **tests/** - Unit test suite (101 total tests)
+4. **tests/** - Unit test suite
    - **conftest.py** - Pytest fixtures and mock data
    - **test_url_scheme.py** - Tests for URL construction (30 test cases)
-   - **test_formatters.py** - Tests for data formatting (62 test cases)
+   - **test_formatters.py** - Tests for data formatting (67 test cases)
    - **test_things_server.py** - Tests for server tools (5 test cases)
    - **test_things_server_headings.py** - Tests for heading functionality (4 test cases)
+   - **test_someday_filtering.py** - Tests for Someday project filtering (8 test cases)
+   - **test_mcp_server_filtering.py** - Integration tests for MCP server filtering (7 test cases)
 
 ## Key Implementation Details
 
@@ -79,6 +82,7 @@ This is a Model Context Protocol (MCP) server that bridges Claude Desktop with t
 - All tools return formatted text strings suitable for Claude
 - Error handling for invalid UUIDs and missing parameters
 - Supports filtering and including nested items via parameters
+- **Someday Project Filtering**: Tasks from Someday projects are filtered out of Today, Upcoming, and Anytime views to match the Things UI behavior and reduce clutter
 - Unit tests mock all external dependencies (Things.py, shell commands)
 - Pytest configuration in pyproject.toml with async support
 - Supports both stdio (default) and HTTP transport modes
