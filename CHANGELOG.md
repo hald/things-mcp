@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- **Someday Project Filtering**: Tasks belonging to Someday projects are now filtered out of Today, Upcoming, and Anytime views, matching Things UI behavior. The Someday view also includes tasks from Someday projects that Things.py reports as Anytime. Handles both direct project membership and tasks under headings in Someday projects.
+- **Someday Inheritance Display**: Tasks in Someday projects now show `List: Someday (inherited from project)` in formatted output, making the inherited status visible.
+
 ## v0.6.0 - 2026-01-14
 
 - **Creation Date Filtering**: Added `last` parameter to `search_advanced` for filtering by creation date (e.g., '3d' for last 3 days, '1w' for last week)
