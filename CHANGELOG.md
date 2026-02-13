@@ -1,9 +1,26 @@
 # Changelog
 
-## Unreleased
+## v0.7.3 - 2026-02-13
 
 - **Someday Project Filtering**: Tasks belonging to Someday projects are now filtered out of Today, Upcoming, and Anytime views, matching Things UI behavior. The Someday view also includes tasks from Someday projects that Things.py reports as Anytime. Handles both direct project membership and tasks under headings in Someday projects.
 - **Someday Inheritance Display**: Tasks in Someday projects now show `List: Someday (inherited from project)` in formatted output, making the inherited status visible.
+- **Integration Test Plan**: Added view-isolation checks, positive-presence tests for Today/Anytime, and Upcoming verification for scheduled items
+
+## v0.7.2 - 2026-01-31
+
+- **Logging Fix**: Changed root logger from DEBUG to INFO to silence verbose third-party library logs
+- **Documentation**: Added uvx troubleshooting section for Claude Desktop path issues
+
+## v0.7.1 - 2026-01-28
+
+- **Simplified MCPB**: MCPB package now uses uvx to fetch from PyPI (1KB vs 8KB)
+- **Documentation**: Reorganized README with cleaner installation sections, promoted MCPB as one-click install
+
+## v0.7.0 - 2026-01-28
+
+- **Package Restructure**: Restructured as uvx-compatible package (`src/things_mcp/`) with proper entry points for direct execution via `uvx things-mcp`
+- **CLI Entry Point**: Added `things-mcp` command as a package entry point
+- **Documentation**: Updated README with uvx installation as recommended method
 
 ## v0.6.0 - 2026-01-14
 
