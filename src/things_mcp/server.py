@@ -18,6 +18,62 @@ HTTP_PORT = int(os.environ.get("THINGS_MCP_PORT", "8000"))
 # Initialize FastMCP server
 mcp = FastMCP("Things")
 
+
+# Build a set of Someday project UUIDs and a mapping of heading UUID -> project UUID
+# for headings that belong to Someday projects.
+def _get_someday_context():
+    """Return (someday_project_ids, heading_to_project) for Someday filtering.
+
+    Returns:
+        Tuple of (set of Someday project UUIDs, dict mapping heading UUID to project UUID)
+    """
+    try:
+        someday_project_ids = {p['uuid'] for p in (things.projects(start='Someday') or [])}
+    except Exception:
+        return set(), {}
+    if not someday_project_ids:
+        return set(), {}
+    # Build heading -> project mapping for headings inside Someday projects
+    heading_to_project = {}
+    for proj_id in someday_project_ids:
+        try:
+            headings = things.tasks(type='heading', project=proj_id)
+            for h in (headings or []):
+                heading_to_project[h['uuid']] = proj_id
+        except Exception:
+            pass
+    return someday_project_ids, heading_to_project
+
+
+def _is_in_someday_project(todo, someday_project_ids, heading_to_project):
+    """Check if a todo belongs to a Someday project, directly or via heading."""
+    if todo.get('project') in someday_project_ids:
+        return True
+    if not todo.get('project') and todo.get('heading'):
+        return todo['heading'] in heading_to_project
+    return False
+
+
+# Helper function to filter out tasks from Someday projects
+def filter_someday_project_tasks(todos):
+    """Filter out tasks that belong to Someday projects.
+
+    This matches Things UI behavior where tasks from Someday projects
+    don't appear in Today, Upcoming, or Anytime views. Handles both
+    direct project membership and tasks under headings in Someday projects.
+
+    Args:
+        todos: List of todo dictionaries
+
+    Returns:
+        Filtered list excluding tasks from Someday projects
+    """
+    someday_project_ids, heading_to_project = _get_someday_context()
+    if not someday_project_ids:
+        return todos
+    return [todo for todo in todos if not _is_in_someday_project(todo, someday_project_ids, heading_to_project)]
+
+
 # List view tools
 @mcp.tool
 async def get_inbox() -> str:
@@ -34,6 +90,10 @@ async def get_today() -> str:
     todos = things.today(include_items=True)
     if not todos:
         return "No items found"
+    # Filter out tasks from Someday projects
+    todos = filter_someday_project_tasks(todos)
+    if not todos:
+        return "No items found"
     formatted_todos = [format_todo(todo) for todo in todos]
     return "\n\n---\n\n".join(formatted_todos)
 
@@ -41,6 +101,10 @@ async def get_today() -> str:
 async def get_upcoming() -> str:
     """Get upcoming todos"""
     todos = things.upcoming(include_items=True)
+    if not todos:
+        return "No items found"
+    # Filter out tasks from Someday projects
+    todos = filter_someday_project_tasks(todos)
     if not todos:
         return "No items found"
     formatted_todos = [format_todo(todo) for todo in todos]
@@ -52,13 +116,28 @@ async def get_anytime() -> str:
     todos = things.anytime(include_items=True)
     if not todos:
         return "No items found"
+    # Filter out tasks from Someday projects
+    todos = filter_someday_project_tasks(todos)
+    if not todos:
+        return "No items found"
     formatted_todos = [format_todo(todo) for todo in todos]
     return "\n\n---\n\n".join(formatted_todos)
 
 @mcp.tool
 async def get_someday() -> str:
-    """Get todos from Someday list"""
+    """Get todos from Someday list, including tasks in Someday projects"""
     todos = things.someday(include_items=True)
+    if todos is None:
+        todos = []
+    # Also include tasks that have start="Anytime" but belong to a Someday project
+    # (directly or via a heading), since Things.py doesn't inherit project Someday status
+    someday_project_ids, heading_to_project = _get_someday_context()
+    if someday_project_ids:
+        anytime_todos = things.anytime(include_items=True) or []
+        existing_uuids = {t['uuid'] for t in todos}
+        for todo in anytime_todos:
+            if _is_in_someday_project(todo, someday_project_ids, heading_to_project) and todo['uuid'] not in existing_uuids:
+                todos.append(todo)
     if not todos:
         return "No items found"
     formatted_todos = [format_todo(todo) for todo in todos]

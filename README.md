@@ -21,6 +21,7 @@ If you find this project helpful, consider supporting its development:
 - Recent items
 - Detailed item information including checklists
 - Support for nested data (projects within areas, todos within projects)
+- Someday project filtering: tasks in Someday projects are automatically excluded from Today, Upcoming, and Anytime views, matching Things UI behavior
 
 
 ## Installation
@@ -104,7 +105,7 @@ After installation:
 - `get-today` - Get todos due today
 - `get-upcoming` - Get upcoming todos
 - `get-anytime` - Get todos from Anytime list
-- `get-someday` - Get todos from Someday list
+- `get-someday` - Get todos from Someday list, including tasks in Someday projects
 - `get-logbook` - Get completed todos
 - `get-trash` - Get trashed todos
 
@@ -215,7 +216,9 @@ things-mcp/
 ├── tests/               # Unit tests
 │   ├── conftest.py      # Test fixtures and configuration
 │   ├── test_url_scheme.py
-│   └── test_formatters.py
+│   ├── test_formatters.py
+│   ├── test_someday_filtering.py
+│   └── test_mcp_server_filtering.py
 ├── docs/                # Documentation
 │   └── mcp_integration_test_plan.md  # Claude-executable integration test
 ├── manifest.json        # MCPB package manifest

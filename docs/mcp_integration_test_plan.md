@@ -14,7 +14,7 @@ A test plan for Claude Cowork or Claude Code to execute via MCP tools. Claude fo
 ## Safety Rules
 
 1. All test items MUST have prefix: `[MCP-TEST]`
-2. All test items MUST use `when: "someday"` to avoid polluting Today/Upcoming
+2. All test items MUST use `when: "someday"` to avoid polluting Today/Upcoming, except for brief positive-presence tests that immediately move items back to Someday
 3. NEVER modify existing user data - only interact with items you create
 4. At the end, mark all created items as `canceled: true` for cleanup
 5. Track all created UUIDs for cleanup phase
@@ -130,8 +130,98 @@ Call `get_tagged_items` with `tag: "<existing-tag-name>"`
 Call `get_someday`
 
 - [ ] Results include test items with "[MCP-TEST]" prefix
+- [ ] Results include `[MCP-TEST] Project Task 1` and `[MCP-TEST] Project Task 2`
+- [ ] Project tasks show "(inherited from project)" annotation in formatted output
+- [ ] The standalone todos (`Basic Todo`, `Full Featured Todo`) also appear
 
-**Phase 3 Complete when:** All created items are found and UUIDs recorded.
+### 3.4 Verify View Isolation
+These checks confirm that each list view contains only the items it should. Tasks belonging to Someday projects are filtered out of Today/Upcoming/Anytime, and items with a future start date appear in Upcoming.
+
+**Check Anytime view:**
+Call `get_anytime`
+
+- [ ] Response does NOT contain `[MCP-TEST] Project Task 1`
+- [ ] Response does NOT contain `[MCP-TEST] Project Task 2`
+- [ ] Standalone Someday todos also do not appear (they are Someday, not Anytime)
+
+**Check Today view:**
+Call `get_today`
+
+- [ ] Response does NOT contain `[MCP-TEST] Project Task 1`
+- [ ] Response does NOT contain `[MCP-TEST] Project Task 2`
+
+**Check Upcoming view:**
+Call `get_upcoming`
+
+- [ ] Response does NOT contain `[MCP-TEST] Project Task 1`
+- [ ] Response does NOT contain `[MCP-TEST] Project Task 2`
+- [ ] Response DOES contain `[MCP-TEST] Reminder Todo` — this item has `when: "2099-01-01@10:00"`, which sets a future start date, placing it in the Upcoming view rather than Someday
+
+### 3.5 Positive Presence in Today View
+Temporarily create a Today item to confirm `get_today` surfaces test items, then move it to Someday to maintain cleanup safety.
+
+**Create a Today todo:**
+Call `add_todo` with:
+```
+title: "[MCP-TEST] Today Presence"
+notes: "Temporary - will be moved to Someday immediately"
+when: "today"
+```
+
+- [ ] Todo created successfully — **record UUID**
+
+**Verify presence:**
+Call `get_today`
+
+- [ ] Response contains `[MCP-TEST] Today Presence`
+
+**Move to Someday:**
+Call `update_todo` with:
+```
+id: "<UUID of Today Presence>"
+when: "someday"
+```
+
+- [ ] Update succeeds
+
+**Verify removal:**
+Call `get_today`
+
+- [ ] Response does NOT contain `[MCP-TEST] Today Presence`
+
+### 3.6 Positive Presence in Anytime View
+Same pattern for Anytime. Create an Anytime item, verify, then move to Someday.
+
+**Create an Anytime todo:**
+Call `add_todo` with:
+```
+title: "[MCP-TEST] Anytime Presence"
+notes: "Temporary - will be moved to Someday immediately"
+when: "anytime"
+```
+
+- [ ] Todo created successfully — **record UUID**
+
+**Verify presence:**
+Call `get_anytime`
+
+- [ ] Response contains `[MCP-TEST] Anytime Presence`
+
+**Move to Someday:**
+Call `update_todo` with:
+```
+id: "<UUID of Anytime Presence>"
+when: "someday"
+```
+
+- [ ] Update succeeds
+
+**Verify removal:**
+Call `get_anytime`
+
+- [ ] Response does NOT contain `[MCP-TEST] Anytime Presence`
+
+**Phase 3 Complete when:** All created items are found in Someday, project tasks show inherited annotation, project tasks are correctly excluded from Anytime/Today/Upcoming, the Reminder Todo appears in Upcoming, and positive-presence tests pass for Today and Anytime views.
 
 ---
 
@@ -194,7 +284,7 @@ Call `search_items` with `query: "[MCP-TEST]"`
 Mark all test items as canceled. This removes them from active lists.
 
 ### 6.1 Cancel All Test Todos
-For each todo UUID recorded in Phase 3, call `update_todo` with:
+For each todo UUID recorded in Phases 2–3 (including the Today Presence and Anytime Presence items from 3.5/3.6), call `update_todo` with:
 ```
 id: "<UUID>"
 canceled: true
@@ -251,6 +341,8 @@ List all items with their UUIDs that were created and then canceled:
   - `[MCP-TEST] Reminder Todo`
   - `[MCP-TEST] Project Task 1`
   - `[MCP-TEST] Project Task 2`
+  - `[MCP-TEST] Today Presence` (created in Phase 3.5, moved to Someday)
+  - `[MCP-TEST] Anytime Presence` (created in Phase 3.6, moved to Someday)
 
 ---
 
