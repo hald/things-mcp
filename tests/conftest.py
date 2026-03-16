@@ -1,6 +1,11 @@
 import pytest
 from unittest.mock import Mock, patch
 
+
+def tool_text(result) -> str:
+    return "\n".join(block.text for block in result.content if hasattr(block, "text"))
+
+
 @pytest.fixture
 def mock_todo():
     """Sample todo data for testing."""

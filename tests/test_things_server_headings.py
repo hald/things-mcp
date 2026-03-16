@@ -1,4 +1,5 @@
 import pytest
+from tests.conftest import tool_text
 from things_mcp.server import get_headings
 
 
@@ -24,10 +25,12 @@ async def test_get_headings_all(mocker):
     ]
     
     result = await get_headings.fn()
+    text = tool_text(result)
     
-    assert "Phase 1" in result
-    assert "Phase 2" in result
-    assert "Main Project" in result
+    assert "Phase 1" in text
+    assert "Phase 2" in text
+    assert "Main Project" in text
+    assert result.structured_content["json"]["count"] == 2
     mock_tasks.assert_called_once_with(type='heading')
 
 
@@ -49,9 +52,11 @@ async def test_get_headings_by_project(mocker):
     ]
     
     result = await get_headings.fn(project_uuid='project-uuid')
+    text = tool_text(result)
     
-    assert "Sprint 1" in result
-    assert "Test Project" in result
+    assert "Sprint 1" in text
+    assert "Test Project" in text
+    assert result.structured_content["json"]["items"][0]["project_title"] == "Test Project"
     mock_get.assert_called_once_with('project-uuid')
     mock_tasks.assert_called_once_with(type='heading', project='project-uuid')
 
@@ -64,7 +69,8 @@ async def test_get_headings_invalid_project(mocker):
     
     result = await get_headings.fn(project_uuid='invalid-uuid')
     
-    assert "Error: Invalid project UUID" in result
+    assert "Error: Invalid project UUID" in tool_text(result)
+    assert result.structured_content["json"]["success"] is False
     mock_get.assert_called_once_with('invalid-uuid')
 
 
@@ -76,5 +82,6 @@ async def test_get_headings_no_headings(mocker):
     
     result = await get_headings.fn()
     
-    assert "No headings found" in result
+    assert "No headings found" in tool_text(result)
+    assert result.structured_content["json"]["count"] == 0
     mock_tasks.assert_called_once_with(type='heading')
