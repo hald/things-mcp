@@ -1,9 +1,16 @@
-from typing import List
+from typing import Callable, List
 import logging
 import os
 import things
 from fastmcp import FastMCP
+from fastmcp.tools.tool import ToolResult
 from .formatters import format_todo, format_project, format_area, format_tag, format_heading
+from .models import (
+    ActionResult,
+    ActionEnvelope,
+    ItemListResult,
+    ListEnvelope,
+)
 from . import url_scheme
 
 # Configure logging
@@ -74,57 +81,99 @@ def filter_someday_project_tasks(todos):
     return [todo for todo in todos if not _is_in_someday_project(todo, someday_project_ids, heading_to_project)]
 
 
+def _tool_list_result(
+    *,
+    items: list[dict],
+    formatter: Callable[[dict], str],
+    result_type,
+    empty_message: str,
+    invalid_message: str | None = None,
+) -> ToolResult:
+    if invalid_message:
+        payload = result_type(success=False, message=invalid_message, count=0, error=invalid_message)
+        return ToolResult(content=invalid_message, structured_content={"json": payload.model_dump()})
+
+    if not items:
+        payload = result_type(message=empty_message, count=0)
+        return ToolResult(content=empty_message, structured_content={"json": payload.model_dump()})
+
+    payload = result_type(
+        message=f"Found {len(items)} item{'s' if len(items) != 1 else ''}",
+        count=len(items),
+        items=items,
+    )
+    text = "\n\n---\n\n".join(formatter(item) for item in items)
+    return ToolResult(content=text, structured_content={"json": payload.model_dump()})
+
+
+def _action_result(
+    action: str,
+    message: str,
+    *,
+    title: str | None = None,
+    target_id: str | None = None,
+) -> ToolResult:
+    payload = ActionResult(
+        action=action,
+        message=message,
+        title=title,
+        target_id=target_id,
+    )
+    return ToolResult(content=message, structured_content={"json": payload.model_dump()})
+
 # List view tools
-@mcp.tool
-async def get_inbox() -> str:
+@mcp.tool(output_schema=ListEnvelope.model_json_schema())
+async def get_inbox() -> ToolResult:
     """Get todos from Inbox"""
     todos = things.inbox(include_items=True)
-    if not todos:
-        return "No items found"
-    formatted_todos = [format_todo(todo) for todo in todos]
-    return "\n\n---\n\n".join(formatted_todos)
+    return _tool_list_result(
+        items=todos,
+        formatter=format_todo,
+        result_type=ItemListResult,
+        empty_message="No items found",
+    )
 
-@mcp.tool
-async def get_today() -> str:
+@mcp.tool(output_schema=ListEnvelope.model_json_schema())
+async def get_today() -> ToolResult:
     """Get todos due today"""
     todos = things.today(include_items=True)
-    if not todos:
-        return "No items found"
     # Filter out tasks from Someday projects
     todos = filter_someday_project_tasks(todos)
-    if not todos:
-        return "No items found"
-    formatted_todos = [format_todo(todo) for todo in todos]
-    return "\n\n---\n\n".join(formatted_todos)
+    return _tool_list_result(
+        items=todos,
+        formatter=format_todo,
+        result_type=ItemListResult,
+        empty_message="No items found",
+    )
 
-@mcp.tool
-async def get_upcoming() -> str:
+@mcp.tool(output_schema=ListEnvelope.model_json_schema())
+async def get_upcoming() -> ToolResult:
     """Get upcoming todos"""
     todos = things.upcoming(include_items=True)
-    if not todos:
-        return "No items found"
     # Filter out tasks from Someday projects
     todos = filter_someday_project_tasks(todos)
-    if not todos:
-        return "No items found"
-    formatted_todos = [format_todo(todo) for todo in todos]
-    return "\n\n---\n\n".join(formatted_todos)
+    return _tool_list_result(
+        items=todos,
+        formatter=format_todo,
+        result_type=ItemListResult,
+        empty_message="No items found",
+    )
 
-@mcp.tool
-async def get_anytime() -> str:
+@mcp.tool(output_schema=ListEnvelope.model_json_schema())
+async def get_anytime() -> ToolResult:
     """Get todos from Anytime list"""
     todos = things.anytime(include_items=True)
-    if not todos:
-        return "No items found"
     # Filter out tasks from Someday projects
     todos = filter_someday_project_tasks(todos)
-    if not todos:
-        return "No items found"
-    formatted_todos = [format_todo(todo) for todo in todos]
-    return "\n\n---\n\n".join(formatted_todos)
+    return _tool_list_result(
+        items=todos,
+        formatter=format_todo,
+        result_type=ItemListResult,
+        empty_message="No items found",
+    )
 
-@mcp.tool
-async def get_someday() -> str:
+@mcp.tool(output_schema=ListEnvelope.model_json_schema())
+async def get_someday() -> ToolResult:
     """Get todos from Someday list, including tasks in Someday projects"""
     todos = things.someday(include_items=True)
     if todos is None:
@@ -138,13 +187,15 @@ async def get_someday() -> str:
         for todo in anytime_todos:
             if _is_in_someday_project(todo, someday_project_ids, heading_to_project) and todo['uuid'] not in existing_uuids:
                 todos.append(todo)
-    if not todos:
-        return "No items found"
-    formatted_todos = [format_todo(todo) for todo in todos]
-    return "\n\n---\n\n".join(formatted_todos)
+    return _tool_list_result(
+        items=todos,
+        formatter=format_todo,
+        result_type=ItemListResult,
+        empty_message="No items found",
+    )
 
-@mcp.tool
-async def get_logbook(period: str = "7d", limit: int = 50) -> str:
+@mcp.tool(output_schema=ListEnvelope.model_json_schema())
+async def get_logbook(period: str = "7d", limit: int = 50) -> ToolResult:
     """Get completed todos from Logbook, defaults to last 7 days
 
     Args:
@@ -154,23 +205,27 @@ async def get_logbook(period: str = "7d", limit: int = 50) -> str:
     todos = things.last(period, status='completed', include_items=True)
     if todos and len(todos) > limit:
         todos = todos[:limit]
-    if not todos:
-        return "No items found"
-    formatted_todos = [format_todo(todo) for todo in todos]
-    return "\n\n---\n\n".join(formatted_todos)
+    return _tool_list_result(
+        items=todos,
+        formatter=format_todo,
+        result_type=ItemListResult,
+        empty_message="No items found",
+    )
 
-@mcp.tool
-async def get_trash() -> str:
+@mcp.tool(output_schema=ListEnvelope.model_json_schema())
+async def get_trash() -> ToolResult:
     """Get trashed todos"""
     todos = things.trash(include_items=True)
-    if not todos:
-        return "No items found"
-    formatted_todos = [format_todo(todo) for todo in todos]
-    return "\n\n---\n\n".join(formatted_todos)
+    return _tool_list_result(
+        items=todos,
+        formatter=format_todo,
+        result_type=ItemListResult,
+        empty_message="No items found",
+    )
 
 # Basic operations
-@mcp.tool
-async def get_todos(project_uuid: str = None, include_items: bool = True) -> str:
+@mcp.tool(output_schema=ListEnvelope.model_json_schema())
+async def get_todos(project_uuid: str = None, include_items: bool = True) -> ToolResult:
     """Get todos from Things, optionally filtered by project
 
     Args:
@@ -180,74 +235,86 @@ async def get_todos(project_uuid: str = None, include_items: bool = True) -> str
     if project_uuid:
         project = things.get(project_uuid)
         if not project or project.get('type') != 'project':
-            return f"Error: Invalid project UUID '{project_uuid}'"
+            message = f"Error: Invalid project UUID '{project_uuid}'"
+            return _tool_list_result(
+                items=[],
+                formatter=format_todo,
+                result_type=ItemListResult,
+                empty_message="No todos found",
+                invalid_message=message,
+            )
 
     todos = things.todos(project=project_uuid, start=None, include_items=include_items)
-    if not todos:
-        return "No todos found"
+    return _tool_list_result(
+        items=todos,
+        formatter=format_todo,
+        result_type=ItemListResult,
+        empty_message="No todos found",
+    )
 
-    formatted_todos = [format_todo(todo) for todo in todos]
-    return "\n\n---\n\n".join(formatted_todos)
-
-@mcp.tool
-async def get_projects(include_items: bool = False) -> str:
+@mcp.tool(output_schema=ListEnvelope.model_json_schema())
+async def get_projects(include_items: bool = False) -> ToolResult:
     """Get all projects from Things
 
     Args:
         include_items: Include tasks within projects
     """
-    projects = things.projects()
-    if not projects:
-        return "No projects found"
+    projects = things.projects(include_items=include_items)
+    return _tool_list_result(
+        items=projects,
+        formatter=lambda project: format_project(project, include_items),
+        result_type=ItemListResult,
+        empty_message="No projects found",
+    )
 
-    formatted_projects = [format_project(project, include_items) for project in projects]
-    return "\n\n---\n\n".join(formatted_projects)
-
-@mcp.tool
-async def get_areas(include_items: bool = False) -> str:
+@mcp.tool(output_schema=ListEnvelope.model_json_schema())
+async def get_areas(include_items: bool = False) -> ToolResult:
     """Get all areas from Things
 
     Args:
         include_items: Include projects and tasks within areas
     """
-    areas = things.areas()
-    if not areas:
-        return "No areas found"
-
-    formatted_areas = [format_area(area, include_items) for area in areas]
-    return "\n\n---\n\n".join(formatted_areas)
+    areas = things.areas(include_items=include_items)
+    return _tool_list_result(
+        items=areas,
+        formatter=lambda area: format_area(area, include_items),
+        result_type=ItemListResult,
+        empty_message="No areas found",
+    )
 
 # Tag operations
-@mcp.tool
-async def get_tags(include_items: bool = False) -> str:
+@mcp.tool(output_schema=ListEnvelope.model_json_schema())
+async def get_tags(include_items: bool = False) -> ToolResult:
     """Get all tags
 
     Args:
         include_items: Include items tagged with each tag
     """
-    tags = things.tags()
-    if not tags:
-        return "No tags found"
+    tags = things.tags(include_items=include_items)
+    return _tool_list_result(
+        items=tags,
+        formatter=lambda tag: format_tag(tag, include_items),
+        result_type=ItemListResult,
+        empty_message="No tags found",
+    )
 
-    formatted_tags = [format_tag(tag, include_items) for tag in tags]
-    return "\n\n---\n\n".join(formatted_tags)
-
-@mcp.tool
-async def get_tagged_items(tag: str) -> str:
+@mcp.tool(output_schema=ListEnvelope.model_json_schema())
+async def get_tagged_items(tag: str) -> ToolResult:
     """Get items with a specific tag
 
     Args:
         tag: Tag title to filter by
     """
     todos = things.todos(tag=tag, include_items=True)
-    if not todos:
-        return f"No items found with tag '{tag}'"
+    return _tool_list_result(
+        items=todos,
+        formatter=format_todo,
+        result_type=ItemListResult,
+        empty_message=f"No items found with tag '{tag}'",
+    )
 
-    formatted_todos = [format_todo(todo) for todo in todos]
-    return "\n\n---\n\n".join(formatted_todos)
-
-@mcp.tool
-async def get_headings(project_uuid: str = None) -> str:
+@mcp.tool(output_schema=ListEnvelope.model_json_schema())
+async def get_headings(project_uuid: str = None) -> ToolResult:
     """Get headings from Things
 
     Args:
@@ -256,33 +323,42 @@ async def get_headings(project_uuid: str = None) -> str:
     if project_uuid:
         project = things.get(project_uuid)
         if not project or project.get('type') != 'project':
-            return f"Error: Invalid project UUID '{project_uuid}'"
+            message = f"Error: Invalid project UUID '{project_uuid}'"
+            return _tool_list_result(
+                items=[],
+                formatter=format_heading,
+                result_type=ItemListResult,
+                empty_message="No headings found",
+                invalid_message=message,
+            )
         headings = things.tasks(type='heading', project=project_uuid)
     else:
         headings = things.tasks(type='heading')
 
-    if not headings:
-        return "No headings found"
-
-    formatted_headings = [format_heading(heading) for heading in headings]
-    return "\n\n---\n\n".join(formatted_headings)
+    return _tool_list_result(
+        items=headings,
+        formatter=format_heading,
+        result_type=ItemListResult,
+        empty_message="No headings found",
+    )
 
 # Search operations
-@mcp.tool
-async def search_todos(query: str) -> str:
+@mcp.tool(output_schema=ListEnvelope.model_json_schema())
+async def search_todos(query: str) -> ToolResult:
     """Search todos by title or notes
 
     Args:
         query: Search term to look for in todo titles and notes
     """
     todos = things.search(query, include_items=True)
-    if not todos:
-        return f"No todos found matching '{query}'"
+    return _tool_list_result(
+        items=todos,
+        formatter=format_todo,
+        result_type=ItemListResult,
+        empty_message=f"No todos found matching '{query}'",
+    )
 
-    formatted_todos = [format_todo(todo) for todo in todos]
-    return "\n\n---\n\n".join(formatted_todos)
-
-@mcp.tool
+@mcp.tool(output_schema=ListEnvelope.model_json_schema())
 async def search_advanced(
     status: str = None,
     start_date: str = None,
@@ -291,7 +367,7 @@ async def search_advanced(
     area: str = None,
     type: str = None,
     last: str = None
-) -> str:
+) -> ToolResult:
     """Advanced todo search with multiple filters
 
     Args:
@@ -323,29 +399,31 @@ async def search_advanced(
         todos = things.tasks(type=type, include_items=True, **search_params)
     else:
         todos = things.todos(include_items=True, **search_params)
-    if not todos:
-        return "No matching todos found"
-
-    formatted_todos = [format_todo(todo) for todo in todos]
-    return "\n\n---\n\n".join(formatted_todos)
+    return _tool_list_result(
+        items=todos,
+        formatter=format_todo,
+        result_type=ItemListResult,
+        empty_message="No matching todos found",
+    )
 
 # Recent items
-@mcp.tool
-async def get_recent(period: str) -> str:
+@mcp.tool(output_schema=ListEnvelope.model_json_schema())
+async def get_recent(period: str) -> ToolResult:
     """Get recently created items
 
     Args:
         period: Time period (e.g., '3d', '1w', '2m', '1y')
     """
     todos = things.last(period, include_items=True)
-    if not todos:
-        return f"No items found in the last {period}"
-
-    formatted_todos = [format_todo(todo) for todo in todos]
-    return "\n\n---\n\n".join(formatted_todos)
+    return _tool_list_result(
+        items=todos,
+        formatter=format_todo,
+        result_type=ItemListResult,
+        empty_message=f"No items found in the last {period}",
+    )
 
 # Things URL Scheme tools
-@mcp.tool
+@mcp.tool(output_schema=ActionEnvelope.model_json_schema())
 async def add_todo(
     title: str,
     notes: str = None,
@@ -357,7 +435,7 @@ async def add_todo(
     list_title: str = None,
     heading: str = None,
     heading_id: str = None
-) -> str:
+) -> ToolResult:
     """Create a new todo in Things
 
     Args:
@@ -386,9 +464,9 @@ async def add_todo(
         heading_id=heading_id
     )
     url_scheme.execute_url(url)
-    return f"Created new todo: {title}"
+    return _action_result("create", f"Created new todo: {title}", title=title)
 
-@mcp.tool
+@mcp.tool(output_schema=ActionEnvelope.model_json_schema())
 async def add_project(
     title: str,
     notes: str = None,
@@ -398,7 +476,7 @@ async def add_project(
     area_id: str = None,
     area_title: str = None,
     todos: List[str] = None
-) -> str:
+) -> ToolResult:
     """Create a new project in Things
 
     Args:
@@ -423,9 +501,9 @@ async def add_project(
         todos=todos
     )
     url_scheme.execute_url(url)
-    return f"Created new project: {title}"
+    return _action_result("create", f"Created new project: {title}", title=title)
 
-@mcp.tool
+@mcp.tool(output_schema=ActionEnvelope.model_json_schema())
 async def update_todo(
     id: str,
     title: str = None,
@@ -439,7 +517,7 @@ async def update_todo(
     list_id: str = None,
     heading: str = None,
     heading_id: str = None
-) -> str:
+) -> ToolResult:
     """Update an existing todo in Things
 
     Args:
@@ -472,9 +550,9 @@ async def update_todo(
         heading_id=heading_id
     )
     url_scheme.execute_url(url)
-    return f"Updated todo with ID: {id}"
+    return _action_result("update", f"Updated todo with ID: {id}", target_id=id)
 
-@mcp.tool
+@mcp.tool(output_schema=ActionEnvelope.model_json_schema())
 async def update_project(
     id: str,
     title: str = None,
@@ -484,7 +562,7 @@ async def update_project(
     tags: List[str] = None,
     completed: bool = None,
     canceled: bool = None
-) -> str:
+) -> ToolResult:
     """Update an existing project in Things
 
     Args:
@@ -509,14 +587,14 @@ async def update_project(
         canceled=canceled
     )
     url_scheme.execute_url(url)
-    return f"Updated project with ID: {id}"
+    return _action_result("update", f"Updated project with ID: {id}", target_id=id)
 
-@mcp.tool
+@mcp.tool(output_schema=ActionEnvelope.model_json_schema())
 async def show_item(
     id: str,
     query: str = None,
     filter_tags: List[str] = None
-) -> str:
+) -> ToolResult:
     """Show a specific item or list in Things
 
     Args:
@@ -530,10 +608,10 @@ async def show_item(
         filter_tags=filter_tags
     )
     url_scheme.execute_url(url)
-    return f"Showing item: {id}"
+    return _action_result("show", f"Showing item: {id}", target_id=id)
 
-@mcp.tool
-async def search_items(query: str) -> str:
+@mcp.tool(output_schema=ActionEnvelope.model_json_schema())
+async def search_items(query: str) -> ToolResult:
     """Search for items in Things
 
     Args:
@@ -541,7 +619,7 @@ async def search_items(query: str) -> str:
     """
     url = url_scheme.search(query)
     url_scheme.execute_url(url)
-    return f"Searching for '{query}'"
+    return _action_result("search", f"Searching for '{query}'", title=query)
 
 
 def main():

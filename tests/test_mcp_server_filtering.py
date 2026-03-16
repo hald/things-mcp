@@ -4,6 +4,7 @@ import pytest
 from unittest.mock import patch
 
 import things_mcp.server as things_server
+from tests.conftest import tool_text
 
 
 class TestMCPServerFiltering:
@@ -25,11 +26,13 @@ class TestMCPServerFiltering:
         ]
 
         result = await things_server.get_anytime.fn()
+        text = tool_text(result)
 
         # Should only include task-2 and task-3
-        assert 'task-1' not in result
-        assert 'Active task' in result
-        assert 'No project' in result
+        assert 'task-1' not in text
+        assert 'Active task' in text
+        assert 'No project' in text
+        assert result.structured_content["json"]["count"] == 2
 
     @pytest.mark.asyncio
     @patch('things_mcp.server.things.today')
@@ -46,10 +49,12 @@ class TestMCPServerFiltering:
         ]
 
         result = await things_server.get_today.fn()
+        text = tool_text(result)
 
         # Should only include task-5
-        assert 'Today someday task' not in result
-        assert 'Today active task' in result
+        assert 'Today someday task' not in text
+        assert 'Today active task' in text
+        assert result.structured_content["json"]["count"] == 1
 
     @pytest.mark.asyncio
     @patch('things_mcp.server.things.upcoming')
@@ -66,10 +71,12 @@ class TestMCPServerFiltering:
         ]
 
         result = await things_server.get_upcoming.fn()
+        text = tool_text(result)
 
         # Should only include task-7
-        assert 'Upcoming someday' not in result
-        assert 'Upcoming active' in result
+        assert 'Upcoming someday' not in text
+        assert 'Upcoming active' in text
+        assert result.structured_content["json"]["count"] == 1
 
     @pytest.mark.asyncio
     @patch('things_mcp.server.things.anytime')
@@ -79,7 +86,8 @@ class TestMCPServerFiltering:
 
         result = await things_server.get_anytime.fn()
 
-        assert result == "No items found"
+        assert tool_text(result) == "No items found"
+        assert result.structured_content["json"]["count"] == 0
 
     @pytest.mark.asyncio
     @patch('things_mcp.server.things.anytime')
@@ -97,7 +105,8 @@ class TestMCPServerFiltering:
 
         result = await things_server.get_anytime.fn()
 
-        assert result == "No items found"
+        assert tool_text(result) == "No items found"
+        assert result.structured_content["json"]["count"] == 0
 
     @pytest.mark.asyncio
     @patch('things_mcp.server.things.anytime')
@@ -119,10 +128,12 @@ class TestMCPServerFiltering:
         ]
 
         result = await things_server.get_someday.fn()
+        text = tool_text(result)
 
-        assert 'Explicitly someday' in result
-        assert 'In someday project' in result
-        assert 'In active project' not in result
+        assert 'Explicitly someday' in text
+        assert 'In someday project' in text
+        assert 'In active project' not in text
+        assert result.structured_content["json"]["count"] == 2
 
     @pytest.mark.asyncio
     @patch('things_mcp.server.things.anytime')
@@ -144,7 +155,9 @@ class TestMCPServerFiltering:
         ]
 
         result = await things_server.get_someday.fn()
+        text = tool_text(result)
 
         # task-1 should appear only once
-        assert result.count('Already someday') == 1
-        assert 'Another someday proj task' in result
+        assert text.count('Already someday') == 1
+        assert 'Another someday proj task' in text
+        assert result.structured_content["json"]["count"] == 2
