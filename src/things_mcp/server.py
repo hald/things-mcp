@@ -83,6 +83,9 @@ def _validate_pagination(limit: int | None, offset: int) -> str | None:
     return None
 
 
+# Pagination in this server is applied after fetching from things.py.
+# It is meant to bound MCP response size and support follow-up scans, not to
+# reduce the number of rows read from the Things data source.
 def _format_paginated_results(
     items: list[dict],
     formatter: Callable[[dict], str],
@@ -90,7 +93,14 @@ def _format_paginated_results(
     limit: int | None = None,
     offset: int = 0,
 ) -> str:
-    """Apply limit/offset pagination and format a collection for MCP output."""
+    """Apply local response pagination and format a collection for MCP output.
+
+    Notes:
+        This slices an already-fetched collection. It does not push limit/offset
+        down into things.py, since the read APIs used by this server do not
+        expose pagination primitives. The goal is to keep MCP responses smaller
+        and make multi-turn scans easier for downstream agents.
+    """
     if not items:
         return empty_message
 
