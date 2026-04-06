@@ -22,6 +22,7 @@ If you find this project helpful, consider supporting its development:
 - Detailed item information including checklists
 - Support for nested data (projects within areas, todos within projects)
 - Someday project filtering: tasks in Someday projects are automatically excluded from Today, Upcoming, and Anytime views, matching Things UI behavior
+- Optional `limit` and `offset` pagination for read/query tools to keep MCP responses manageable
 
 
 ## Installation
@@ -134,6 +135,16 @@ After installation:
 - `search-items` - Search for items in Things
 
 ## Tool Parameters
+
+### Pagination for Read Tools
+- Most read-only tools support `limit` and `offset`
+- `limit` (optional) - Maximum number of items to return. Must be positive. If omitted, returns all matching items
+- `offset` (optional, default: `0`) - Number of matching items to skip before returning results
+- Pagination is applied after filtering and before formatting
+- Paginated responses include a `Showing X-Y of Z items` header
+
+This applies to list views, data query tools, tag tools, search tools, and `get-recent`.
+`get-logbook` also supports `offset` and keeps its default `limit` of `50`.
 
 ### get-todos
 - `project_uuid` (optional) - Filter todos by project
