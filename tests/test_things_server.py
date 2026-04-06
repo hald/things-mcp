@@ -44,6 +44,19 @@ async def test_get_todos_rejects_non_positive_limit(mocker):
 
 
 @pytest.mark.asyncio
+async def test_get_todos_offset_past_end_reports_empty_page(mocker):
+    mock_things_todos = mocker.patch('things.todos')
+    mock_things_todos.return_value = [
+        {'uuid': 'task-1', 'title': 'First Task', 'type': 'to-do'},
+        {'uuid': 'task-2', 'title': 'Second Task', 'type': 'to-do'},
+    ]
+
+    result = await get_todos.fn(limit=10, offset=10)
+
+    assert result == "Showing 0 of 2 items (offset 10 is past the end)"
+
+
+@pytest.mark.asyncio
 async def test_get_today_includes_checklist(mocker, mock_todo, mock_things_get):
     mock_today = mocker.patch('things.today')
     mock_projects = mocker.patch('things_mcp.server.things.projects')

@@ -91,10 +91,15 @@ def _format_paginated_results(
     offset: int = 0,
 ) -> str:
     """Apply limit/offset pagination and format a collection for MCP output."""
+    if not items:
+        return empty_message
+
     end = None if limit is None else offset + limit
     paginated_items = items[offset:end]
+    item_label = "item" if len(items) == 1 else "items"
+
     if not paginated_items:
-        return empty_message
+        return f"Showing 0 of {len(items)} {item_label} (offset {offset} is past the end)"
 
     formatted_items = [formatter(item) for item in paginated_items]
     result = "\n\n---\n\n".join(formatted_items)
@@ -104,7 +109,6 @@ def _format_paginated_results(
 
     start_index = offset + 1
     end_index = offset + len(paginated_items)
-    item_label = "item" if len(items) == 1 else "items"
     return f"Showing {start_index}-{end_index} of {len(items)} {item_label}\n\n{result}"
 
 
