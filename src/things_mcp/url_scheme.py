@@ -40,6 +40,26 @@ def execute_url(url: str) -> None:
         # Fallback - still try with open -g directly
         subprocess.run(['open', '-g', url], check=True)
 
+
+def add_area(title: str) -> str:
+    """Create a new Area in Things 3 via AppleScript.
+
+    The Things URL scheme has no add-area command, so we use AppleScript instead.
+    Returns the new Area's UUID.
+    """
+    escaped_title = title.replace('\\', '\\\\').replace('"', '\\"')
+    applescript = (
+        'tell application "Things3"\n'
+        f'  set newArea to make new area with properties {{name:"{escaped_title}"}}\n'
+        '  return id of newArea\n'
+        'end tell'
+    )
+    result = subprocess.run(
+        ['osascript', '-e', applescript],
+        check=True, capture_output=True, text=True
+    )
+    return result.stdout.strip()
+
 def construct_url(command: str, params: Dict[str, Any]) -> str:
     """Construct a Things URL from command and parameters."""
     # Start with base URL

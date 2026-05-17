@@ -389,6 +389,20 @@ async def add_todo(
     return f"Created new todo: {title}"
 
 @mcp.tool
+async def add_area(title: str) -> str:
+    """Create a new Area in Things 3
+
+    Areas are top-level containers in Things 3 (e.g. "Work", "Personal", "Backlog").
+    The Things URL scheme cannot create Areas, so this uses AppleScript.
+
+    Args:
+        title: Title of the area
+    """
+    area_id = url_scheme.add_area(title=title)
+    return f"Created new area: {title} (id: {area_id})"
+
+
+@mcp.tool
 async def add_project(
     title: str,
     notes: str = None,
