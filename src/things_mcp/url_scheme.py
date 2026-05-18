@@ -40,6 +40,79 @@ def execute_url(url: str) -> None:
         # Fallback - still try with open -g directly
         subprocess.run(['open', '-g', url], check=True)
 
+
+def add_area(title: str) -> str:
+    """Create a new Area in Things 3 via AppleScript.
+
+    The Things URL scheme has no add-area command, so we use AppleScript instead.
+    Returns the new Area's UUID.
+    """
+    escaped_title = title.replace('\\', '\\\\').replace('"', '\\"')
+    applescript = (
+        'tell application "Things3"\n'
+        f'  set newArea to make new area with properties {{name:"{escaped_title}"}}\n'
+        '  return id of newArea\n'
+        'end tell'
+    )
+    result = subprocess.run(
+        ['osascript', '-e', applescript],
+        check=True, capture_output=True, text=True
+    )
+    return result.stdout.strip()
+
+
+def add_heading(title: str, project_id: str) -> str:
+    """Create a new Heading inside an existing Project via UI scripting.
+
+    Things 3 exposes no native AppleScript class for headings and the URL
+    scheme cannot create standalone headings in an existing project, so we
+    drive the Things UI via System Events:
+
+      1. Navigate to the target project via the URL scheme.
+      2. Invoke File > New Heading from the menu.
+      3. Type the heading title and press Return.
+      4. Diff the heading list before/after to recover the new UUID.
+
+    Requires Accessibility permission for the calling process (System Events)
+    and momentarily brings Things 3 to the foreground.
+
+    Returns the new heading's UUID.
+    """
+    before = {h['uuid'] for h in (things.tasks(type='heading', project=project_id) or [])}
+
+    escaped_title = title.replace('\\', '\\\\').replace('"', '\\"')
+    applescript = f'''
+tell application "Things3"
+    activate
+    open location "things:///show?id={project_id}"
+end tell
+delay 0.6
+tell application "System Events"
+    tell process "Things3"
+        click menu item "New Heading" of menu "File" of menu bar 1
+    end tell
+    delay 0.3
+    keystroke "{escaped_title}"
+    delay 0.2
+    key code 36
+end tell
+delay 0.4
+'''
+    subprocess.run(
+        ['osascript', '-e', applescript],
+        check=True, capture_output=True, text=True
+    )
+
+    after = things.tasks(type='heading', project=project_id) or []
+    new_headings = [h for h in after if h['uuid'] not in before and h.get('title') == title]
+    if not new_headings:
+        raise RuntimeError(
+            f"add_heading: UI flow completed but no new heading matching '{title}' "
+            f"was found in project {project_id}. Check Accessibility permission "
+            f"for System Events and that the project ID is valid."
+        )
+    return new_headings[0]['uuid']
+
 def construct_url(command: str, params: Dict[str, Any]) -> str:
     """Construct a Things URL from command and parameters."""
     # Start with base URL

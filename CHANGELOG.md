@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- **Add Area Creation**: New `add-area` tool creates Areas in Things 3. Since the Things URL scheme has no `add-area` command, this uses AppleScript (`make new area with properties {name:...}`) and returns the new Area's UUID. Title strings are escaped to prevent AppleScript injection.
+- **Add Heading Creation**: New `add-heading` tool creates Headings inside existing Projects. Things 3 exposes no native AppleScript class for headings and its URL scheme cannot create standalone headings in an existing project, so this drives the Things UI via System Events (`File > New Heading`), types the title, and diffs the heading list before/after to recover the new UUID. Requires Accessibility permission and briefly brings Things 3 to the foreground. Raises a clear error if the UI flow completes without producing a matching heading.
+
 ## v0.7.3 - 2026-02-13
 
 - **Someday Project Filtering**: Tasks belonging to Someday projects are now filtered out of Today, Upcoming, and Anytime views, matching Things UI behavior. The Someday view also includes tasks from Someday projects that Things.py reports as Anytime. Handles both direct project membership and tasks under headings in Someday projects.
