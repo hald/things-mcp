@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import patch, Mock
 import subprocess
 from things_mcp.url_scheme import (
-    execute_url, construct_url, add_todo, add_project, add_area,
+    execute_url, construct_url, add_todo, add_project, add_area, add_heading,
     update_todo, update_project, show, search, format_when_with_reminder
 )
 
@@ -77,6 +77,57 @@ class TestAddArea:
 
         script = mock_run.call_args[0][0][2]
         assert 'name:"foo\\\\bar"' in script
+
+
+class TestAddHeading:
+    """Test the add_heading function (UI-scripting based — Things has no native API for headings)."""
+
+    @patch('things_mcp.url_scheme.subprocess.run')
+    @patch('things_mcp.url_scheme.things')
+    def test_add_heading_returns_new_uuid(self, mock_things, mock_run):
+        """add_heading diffs heading lists before/after and returns the new UUID."""
+        mock_things.tasks.side_effect = [
+            [{'uuid': 'OLD1', 'title': 'existing'}],
+            [{'uuid': 'OLD1', 'title': 'existing'}, {'uuid': 'NEW1', 'title': 'clx'}],
+        ]
+        mock_run.return_value = Mock(returncode=0)
+
+        uuid = add_heading('clx', 'PROJECT_ID')
+
+        assert uuid == 'NEW1'
+        mock_run.assert_called_once()
+        script = mock_run.call_args[0][0][2]
+        assert 'things:///show?id=PROJECT_ID' in script
+        assert 'New Heading' in script
+        assert 'keystroke "clx"' in script
+
+    @patch('things_mcp.url_scheme.subprocess.run')
+    @patch('things_mcp.url_scheme.things')
+    def test_add_heading_raises_when_no_new_heading_appears(self, mock_things, mock_run):
+        """If the UI flow fails to produce a matching heading, raise rather than return garbage."""
+        mock_things.tasks.side_effect = [
+            [{'uuid': 'OLD1', 'title': 'existing'}],
+            [{'uuid': 'OLD1', 'title': 'existing'}],
+        ]
+        mock_run.return_value = Mock(returncode=0)
+
+        with pytest.raises(RuntimeError, match="no new heading matching 'clx'"):
+            add_heading('clx', 'PROJECT_ID')
+
+    @patch('things_mcp.url_scheme.subprocess.run')
+    @patch('things_mcp.url_scheme.things')
+    def test_add_heading_escapes_double_quotes(self, mock_things, mock_run):
+        """Titles with double quotes are escaped before being embedded in the keystroke string."""
+        mock_things.tasks.side_effect = [
+            [],
+            [{'uuid': 'X', 'title': 'foo "bar"'}],
+        ]
+        mock_run.return_value = Mock(returncode=0)
+
+        add_heading('foo "bar"', 'PROJECT_ID')
+
+        script = mock_run.call_args[0][0][2]
+        assert 'keystroke "foo \\"bar\\""' in script
 
 
 class TestConstructUrl:

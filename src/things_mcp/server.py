@@ -403,6 +403,23 @@ async def add_area(title: str) -> str:
 
 
 @mcp.tool
+async def add_heading(title: str, project_id: str) -> str:
+    """Create a new Heading inside an existing Project in Things 3.
+
+    Things 3 has no native AppleScript class for headings and its URL scheme
+    cannot create standalone headings in an existing project, so this drives
+    the Things UI via System Events (File > New Heading). Requires
+    Accessibility permission and will briefly bring Things 3 to the foreground.
+
+    Args:
+        title: Title of the heading
+        project_id: UUID of the project to add the heading to
+    """
+    heading_id = url_scheme.add_heading(title=title, project_id=project_id)
+    return f"Created new heading: {title} (id: {heading_id})"
+
+
+@mcp.tool
 async def add_project(
     title: str,
     notes: str = None,
