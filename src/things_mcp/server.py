@@ -247,6 +247,40 @@ async def get_tagged_items(tag: str) -> str:
     return "\n\n---\n\n".join(formatted_todos)
 
 @mcp.tool
+async def get_tag_usage(only_unused: bool = False) -> str:
+    """Report how many items use each tag, sorted by usage (highest first).
+
+    Useful for cleaning up tags that accumulate over time. Identify
+    rarely-used or unused tags first; then either remove them from any
+    remaining items (via update_todo's tags parameter) or delete the
+    tag manually in Things — the URL scheme does not support tag
+    deletion or renaming.
+
+    Args:
+        only_unused: If true, return only tags with zero items.
+    """
+    tags = things.tags()
+    if not tags:
+        return "No tags found"
+
+    rows = []
+    for tag in tags:
+        title = tag['title']
+        open_count = len(things.todos(tag=title) or [])
+        all_count = len(things.tasks(tag=title, status=None) or [])
+        rows.append((title, open_count, all_count))
+
+    if only_unused:
+        rows = [r for r in rows if r[2] == 0]
+        if not rows:
+            return "No unused tags"
+        rows.sort(key=lambda r: r[0].lower())
+    else:
+        rows.sort(key=lambda r: (-r[2], r[0].lower()))
+
+    return "\n".join(f"{name}: {open_c} open, {all_c} total" for name, open_c, all_c in rows)
+
+@mcp.tool
 async def get_headings(project_uuid: str = None) -> str:
     """Get headings from Things
 
@@ -433,6 +467,7 @@ async def update_todo(
     when: str = None,
     deadline: str = None,
     tags: List[str] = None,
+    add_tags: List[str] = None,
     completed: bool = None,
     canceled: bool = None,
     list: str = None,
@@ -449,7 +484,8 @@ async def update_todo(
         when: New schedule (today, tomorrow, evening, anytime, someday, or YYYY-MM-DD).
             Use YYYY-MM-DD@HH:MM format to add a reminder (e.g., 2024-01-15@14:30)
         deadline: New deadline (YYYY-MM-DD)
-        tags: New tags
+        tags: New tags (replaces all existing tags)
+        add_tags: Tags to append without removing existing tags
         completed: Mark as completed
         canceled: Mark as canceled
         list: The title of a project or area to move the to-do into
@@ -464,6 +500,7 @@ async def update_todo(
         when=when,
         deadline=deadline,
         tags=tags,
+        add_tags=add_tags,
         completed=completed,
         canceled=canceled,
         list=list,

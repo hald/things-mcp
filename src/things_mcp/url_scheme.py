@@ -149,7 +149,9 @@ def add_project(title: str, notes: Optional[str] = None, when: Optional[str] = N
 
 def update_todo(id: str, title: Optional[str] = None, notes: Optional[str] = None,
                 when: Optional[str] = None, deadline: Optional[str] = None,
-                tags: Optional[list[str]] = None, completed: Optional[bool] = None,
+                tags: Optional[list[str]] = None,
+                add_tags: Optional[list[str]] = None,
+                completed: Optional[bool] = None,
                 canceled: Optional[bool] = None, list: Optional[str] = None,
                 list_id: Optional[str] = None, heading: Optional[str] = None,
                 heading_id: Optional[str] = None) -> str:
@@ -165,6 +167,7 @@ def update_todo(id: str, title: Optional[str] = None, notes: Optional[str] = Non
             - DateTime (adds reminder): "yyyy-mm-dd@HH:MM" (e.g., "2024-01-15@14:30")
         deadline: New deadline (yyyy-mm-dd)
         tags: New tags (replaces existing)
+        add_tags: Tags to append to the existing list (does not remove existing)
         completed: Mark as completed
         canceled: Mark as canceled
         list: Title of project/area to move to
@@ -179,6 +182,7 @@ def update_todo(id: str, title: Optional[str] = None, notes: Optional[str] = Non
         'when': when,
         'deadline': deadline,
         'tags': tags,
+        'add-tags': add_tags,
         'completed': completed,
         'canceled': canceled,
         'list': list,

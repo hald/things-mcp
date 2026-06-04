@@ -1,5 +1,7 @@
 import pytest
-from things_mcp.server import get_todos, get_today, search_todos, search_advanced
+from things_mcp.server import (
+    get_todos, get_today, search_todos, search_advanced, get_tag_usage,
+)
 
 
 @pytest.mark.asyncio
@@ -66,3 +68,56 @@ async def test_search_advanced_without_type(mocker, mock_todo):
         include_items=True, status="incomplete"
     )
     assert "Test Todo" in result
+
+
+# --- get_tag_usage (#14) ------------------------------------------------------
+
+def _set_tag_data(mocker, *, tags, open_counts, all_counts):
+    """Wire up things.tags / things.todos / things.tasks for tag-usage tests.
+
+    open_counts and all_counts are dicts keyed by tag title.
+    """
+    mocker.patch('things.tags', return_value=[{'title': t, 'uuid': f'u-{t}'} for t in tags])
+    mocker.patch('things.todos', side_effect=lambda tag, **kw: [0] * open_counts.get(tag, 0))
+    mocker.patch('things.tasks', side_effect=lambda tag, **kw: [0] * all_counts.get(tag, 0))
+
+
+@pytest.mark.asyncio
+async def test_get_tag_usage_sorts_by_total_desc(mocker):
+    _set_tag_data(
+        mocker,
+        tags=['work', 'home', 'shopping'],
+        open_counts={'work': 5, 'home': 2, 'shopping': 0},
+        all_counts={'work': 30, 'home': 10, 'shopping': 0},
+    )
+
+    result = await get_tag_usage.fn()
+
+    lines = result.split('\n')
+    assert lines[0].startswith('work:')
+    assert lines[1].startswith('home:')
+    assert lines[2].startswith('shopping:')
+    assert '5 open, 30 total' in lines[0]
+
+
+@pytest.mark.asyncio
+async def test_get_tag_usage_only_unused(mocker):
+    _set_tag_data(
+        mocker,
+        tags=['work', 'old-tag-1', 'old-tag-2'],
+        open_counts={'work': 5, 'old-tag-1': 0, 'old-tag-2': 0},
+        all_counts={'work': 30, 'old-tag-1': 0, 'old-tag-2': 0},
+    )
+
+    result = await get_tag_usage.fn(only_unused=True)
+
+    assert 'old-tag-1' in result
+    assert 'old-tag-2' in result
+    assert 'work' not in result
+
+
+@pytest.mark.asyncio
+async def test_get_tag_usage_empty(mocker):
+    mocker.patch('things.tags', return_value=[])
+    result = await get_tag_usage.fn()
+    assert result == 'No tags found'
