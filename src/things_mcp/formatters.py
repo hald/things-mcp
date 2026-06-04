@@ -4,6 +4,7 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
+
 def _calculate_age(date_str: str) -> str:
     """Helper function to calculate human-readable age from a date string.
 
@@ -37,23 +38,55 @@ def _calculate_age(date_str: str) -> str:
         years = days // 365
         return f"{years} year{'s' if years > 1 else ''} ago"
 
+
+def _lookup_title(uuid):
+    """Fetch an item by uuid and return its title, or None if missing/broken.
+
+    Wraps the things.get + try/except + None check pattern used to display
+    parent project, area, and heading titles next to a task.
+    """
+    if not uuid:
+        return None
+    try:
+        obj = things.get(uuid)
+    except Exception:
+        return None
+    return obj['title'] if obj and obj.get('title') else None
+
+
+def _append_timestamps(text: str, item: dict) -> str:
+    """Append 'Created/Age' and 'Modified/Last modified' lines if present.
+
+    Both blocks were duplicated across format_todo / format_project /
+    format_area / format_heading with the same try/except shape. Centralise
+    here so the four formatters stay in lock-step.
+    """
+    if item.get('created'):
+        text += f"\nCreated: {item['created']}"
+        try:
+            text += f"\nAge: {_calculate_age(item['created'])}"
+        except (ValueError, TypeError):
+            pass
+    if item.get('modified'):
+        text += f"\nModified: {item['modified']}"
+        try:
+            text += f"\nLast modified: {_calculate_age(item['modified'])}"
+        except (ValueError, TypeError):
+            pass
+    return text
+
+
 def format_todo(todo: dict) -> str:
     """Helper function to format a single todo into a readable string."""
-    logger.debug(f"Formatting todo: {todo}")
     todo_text = f"Title: {todo['title']}"
-
-    # Add UUID for reference
     todo_text += f"\nUUID: {todo['uuid']}"
-
-    # Add type
     todo_text += f"\nType: {todo['type']}"
 
-    # Add status if present
     if todo.get('status'):
         todo_text += f"\nStatus: {todo['status']}"
 
-    # Look up parent project once (used for both List status and Project display)
-    # For heading-level tasks without a project field, resolve heading -> project
+    # Look up parent project once (used for both List status and Project display).
+    # For heading-level tasks without a project field, resolve heading -> project.
     parent_project = None
     if todo.get('project'):
         try:
@@ -68,7 +101,7 @@ def format_todo(todo: dict) -> str:
         except Exception:
             pass
 
-    # Add start/list location with Someday inheritance
+    # Start/list location with Someday inheritance from the parent project.
     if todo.get('start'):
         effective_start = todo['start']
         if effective_start != 'Someday' and parent_project and parent_project.get('start') == 'Someday':
@@ -77,64 +110,32 @@ def format_todo(todo: dict) -> str:
         else:
             todo_text += f"\nList: {effective_start}"
 
-    # Add dates
     if todo.get('start_date'):
         todo_text += f"\nStart Date: {todo['start_date']}"
     if todo.get('deadline'):
         todo_text += f"\nDeadline: {todo['deadline']}"
-    if todo.get('stop_date'):  # Completion date
+    if todo.get('stop_date'):
         todo_text += f"\nCompleted: {todo['stop_date']}"
 
-    # Add creation and modification dates
-    if todo.get('created'):
-        todo_text += f"\nCreated: {todo['created']}"
-        # Calculate age since creation
-        try:
-            age_text = _calculate_age(todo['created'])
-            todo_text += f"\nAge: {age_text}"
-        except (ValueError, TypeError):
-            pass
+    todo_text = _append_timestamps(todo_text, todo)
 
-    if todo.get('modified'):
-        todo_text += f"\nModified: {todo['modified']}"
-        # Calculate time since last modification
-        try:
-            modified_age = _calculate_age(todo['modified'])
-            todo_text += f"\nLast modified: {modified_age}"
-        except (ValueError, TypeError):
-            pass
-
-    # Add notes if present
     if todo.get('notes'):
         todo_text += f"\nNotes: {todo['notes']}"
 
-    # Add project info if present
     if parent_project:
         todo_text += f"\nProject: {parent_project['title']}"
 
-    # Add heading info if present
-    if todo.get('heading'):
-        try:
-            heading = things.get(todo['heading'])
-            if heading:
-                todo_text += f"\nHeading: {heading['title']}"
-        except Exception:
-            pass
+    heading_title = _lookup_title(todo.get('heading'))
+    if heading_title:
+        todo_text += f"\nHeading: {heading_title}"
 
-    # Add area info if present
-    if todo.get('area'):
-        try:
-            area = things.get(todo['area'])
-            if area:
-                todo_text += f"\nArea: {area['title']}"
-        except Exception:
-            pass
+    area_title = _lookup_title(todo.get('area'))
+    if area_title:
+        todo_text += f"\nArea: {area_title}"
 
-    # Add tags if present
     if todo.get('tags'):
         todo_text += f"\nTags: {', '.join(todo['tags'])}"
 
-    # Add checklist if present and contains items
     if isinstance(todo.get('checklist'), list):
         todo_text += "\nChecklist:"
         for item in todo['checklist']:
@@ -143,41 +144,21 @@ def format_todo(todo: dict) -> str:
 
     return todo_text
 
+
 def format_project(project: dict, include_items: bool = False) -> str:
     """Helper function to format a single project."""
     project_text = f"Title: {project['title']}\nUUID: {project['uuid']}"
 
-    if project.get('area'):
-        try:
-            area = things.get(project['area'])
-            if area:
-                project_text += f"\nArea: {area['title']}"
-        except Exception:
-            pass
+    area_title = _lookup_title(project.get('area'))
+    if area_title:
+        project_text += f"\nArea: {area_title}"
 
     if project.get('notes'):
         project_text += f"\nNotes: {project['notes']}"
 
-    # Add creation and modification dates
-    if project.get('created'):
-        project_text += f"\nCreated: {project['created']}"
-        # Calculate age since creation
-        try:
-            age_text = _calculate_age(project['created'])
-            project_text += f"\nAge: {age_text}"
-        except (ValueError, TypeError):
-            pass
+    project_text = _append_timestamps(project_text, project)
 
-    if project.get('modified'):
-        project_text += f"\nModified: {project['modified']}"
-        # Calculate time since last modification
-        try:
-            modified_age = _calculate_age(project['modified'])
-            project_text += f"\nLast modified: {modified_age}"
-        except (ValueError, TypeError):
-            pass
-
-    # Always show headings for projects
+    # Always show headings for projects.
     headings = things.tasks(type='heading', project=project['uuid'])
     if headings:
         project_text += "\n\nHeadings:"
@@ -193,6 +174,7 @@ def format_project(project: dict, include_items: bool = False) -> str:
 
     return project_text
 
+
 def format_area(area: dict, include_items: bool = False) -> str:
     """Helper function to format a single area."""
     area_text = f"Title: {area['title']}\nUUID: {area['uuid']}"
@@ -200,22 +182,7 @@ def format_area(area: dict, include_items: bool = False) -> str:
     if area.get('notes'):
         area_text += f"\nNotes: {area['notes']}"
 
-    # Add creation and modification dates
-    if area.get('created'):
-        area_text += f"\nCreated: {area['created']}"
-        try:
-            age_text = _calculate_age(area['created'])
-            area_text += f"\nAge: {age_text}"
-        except (ValueError, TypeError):
-            pass
-
-    if area.get('modified'):
-        area_text += f"\nModified: {area['modified']}"
-        try:
-            modified_age = _calculate_age(area['modified'])
-            area_text += f"\nLast modified: {modified_age}"
-        except (ValueError, TypeError):
-            pass
+    area_text = _append_timestamps(area_text, area)
 
     if include_items:
         projects = things.projects(area=area['uuid'])
@@ -231,6 +198,7 @@ def format_area(area: dict, include_items: bool = False) -> str:
                 area_text += f"\n- {todo['title']}"
 
     return area_text
+
 
 def format_tag(tag: dict, include_items: bool = False) -> str:
     """Helper function to format a single tag."""
@@ -248,45 +216,25 @@ def format_tag(tag: dict, include_items: bool = False) -> str:
 
     return tag_text
 
+
 def format_heading(heading: dict, include_items: bool = False) -> str:
     """Helper function to format a single heading."""
     heading_text = f"Title: {heading['title']}\nUUID: {heading['uuid']}"
     heading_text += f"\nType: heading"
 
-    # Add project info if present
     if heading.get('project'):
-        if heading.get('project_title'):
-            heading_text += f"\nProject: {heading['project_title']}"
-        else:
-            try:
-                project = things.get(heading['project'])
-                if project:
-                    heading_text += f"\nProject: {project['title']}"
-            except Exception:
-                pass
+        # Prefer the inlined project_title if things-py already provided it,
+        # otherwise fall back to a fresh lookup.
+        project_title = heading.get('project_title') or _lookup_title(heading.get('project'))
+        if project_title:
+            heading_text += f"\nProject: {project_title}"
 
-    # Add dates
-    if heading.get('created'):
-        heading_text += f"\nCreated: {heading['created']}"
-        try:
-            age_text = _calculate_age(heading['created'])
-            heading_text += f"\nAge: {age_text}"
-        except (ValueError, TypeError):
-            pass
-    if heading.get('modified'):
-        heading_text += f"\nModified: {heading['modified']}"
-        try:
-            modified_age = _calculate_age(heading['modified'])
-            heading_text += f"\nLast modified: {modified_age}"
-        except (ValueError, TypeError):
-            pass
+    heading_text = _append_timestamps(heading_text, heading)
 
-    # Add notes if present
     if heading.get('notes'):
         heading_text += f"\nNotes: {heading['notes']}"
 
     if include_items:
-        # Get todos under this heading
         todos = things.todos(heading=heading['uuid'])
         if todos:
             heading_text += "\n\nTasks under heading:"

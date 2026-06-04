@@ -1,7 +1,60 @@
 import pytest
 from unittest.mock import patch
 from datetime import datetime, timedelta
-from things_mcp.formatters import format_todo, format_project, format_area, format_tag, format_heading, _calculate_age
+from things_mcp.formatters import (
+    format_todo, format_project, format_area, format_tag, format_heading,
+    _calculate_age, _lookup_title, _append_timestamps,
+)
+
+
+class TestLookupTitle:
+    """The helper that wraps things.get + try/except + None check."""
+
+    def test_returns_none_for_falsy_uuid(self):
+        assert _lookup_title(None) is None
+        assert _lookup_title("") is None
+
+    @patch('things.get')
+    def test_returns_title_on_hit(self, mock_get):
+        mock_get.return_value = {'title': 'My Area', 'uuid': 'a-1'}
+        assert _lookup_title('a-1') == 'My Area'
+
+    @patch('things.get')
+    def test_returns_none_on_miss(self, mock_get):
+        mock_get.return_value = None
+        assert _lookup_title('missing') is None
+
+    @patch('things.get')
+    def test_returns_none_when_things_get_raises(self, mock_get):
+        mock_get.side_effect = RuntimeError("db locked")
+        assert _lookup_title('a-1') is None
+
+    @patch('things.get')
+    def test_returns_none_when_title_missing(self, mock_get):
+        mock_get.return_value = {'uuid': 'a-1'}  # no 'title' key
+        assert _lookup_title('a-1') is None
+
+
+class TestAppendTimestamps:
+    """The helper that emits Created/Age and Modified/Last modified."""
+
+    def test_skips_when_neither_present(self):
+        assert _append_timestamps("base", {}) == "base"
+
+    def test_emits_created_only(self):
+        now = datetime.now().isoformat()
+        result = _append_timestamps("base", {'created': now})
+        assert "Created:" in result
+        assert "Age: today" in result
+        assert "Modified:" not in result
+
+    def test_swallows_invalid_dates(self):
+        result = _append_timestamps("base", {'created': 'not-a-date', 'modified': 'also-bad'})
+        # Raw values still echoed; age lines suppressed instead of raising.
+        assert "Created: not-a-date" in result
+        assert "Modified: also-bad" in result
+        assert "Age:" not in result
+        assert "Last modified:" not in result
 
 
 class TestCalculateAge:
