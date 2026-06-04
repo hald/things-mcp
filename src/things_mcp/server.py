@@ -438,7 +438,10 @@ async def update_todo(
     list: str = None,
     list_id: str = None,
     heading: str = None,
-    heading_id: str = None
+    heading_id: str = None,
+    checklist_items: List[str] = None,
+    prepend_checklist_items: List[str] = None,
+    append_checklist_items: List[str] = None,
 ) -> str:
     """Update an existing todo in Things
 
@@ -456,6 +459,9 @@ async def update_todo(
         list_id: The ID of a project or area to move the to-do into (takes precedence over list)
         heading: The heading title to move the to-do under
         heading_id: The heading ID to move the to-do under (takes precedence over heading)
+        checklist_items: Replace the entire checklist with these items
+        prepend_checklist_items: Add these items to the start of the existing checklist
+        append_checklist_items: Add these items to the end of the existing checklist
     """
     url = url_scheme.update_todo(
         id=id,
@@ -469,7 +475,10 @@ async def update_todo(
         list=list,
         list_id=list_id,
         heading=heading,
-        heading_id=heading_id
+        heading_id=heading_id,
+        checklist_items=checklist_items,
+        prepend_checklist_items=prepend_checklist_items,
+        append_checklist_items=append_checklist_items,
     )
     url_scheme.execute_url(url)
     return f"Updated todo with ID: {id}"
