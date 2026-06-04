@@ -54,6 +54,37 @@ def _is_in_someday_project(todo, someday_project_ids, heading_to_project):
     return False
 
 
+def _today_fallback():
+    """Re-implementation of ``things.today()`` with a None-safe sort key.
+
+    Workaround for an upstream things-py bug (see things-mcp #43): the
+    library's ``today()`` aggregates three task sets and sorts the union
+    on ``(today_index, start_date)``. The "unconfirmed overdue" branch
+    selects tasks via ``start_date=False`` — i.e. tasks with a deadline
+    today but no start date — so ``start_date`` is None for those rows.
+    Mixed with the other two branches (which have string start_dates),
+    the tuple comparison crashes with
+    ``'<' not supported between instances of 'NoneType' and 'str'``.
+
+    We push None start_dates to the end with a sentinel string.
+    """
+    regular = things.tasks(
+        start_date=True, start="Anytime", index="todayIndex", include_items=True
+    ) or []
+    unconfirmed_scheduled = things.tasks(
+        start_date="past", start="Someday", index="todayIndex", include_items=True
+    ) or []
+    unconfirmed_overdue = things.tasks(
+        start_date=False, deadline="past", deadline_suppressed=False, include_items=True
+    ) or []
+    result = [*regular, *unconfirmed_scheduled, *unconfirmed_overdue]
+    result.sort(key=lambda t: (
+        t["today_index"] if t.get("today_index") is not None else 0,
+        t["start_date"] if t.get("start_date") is not None else "9999-99-99",
+    ))
+    return result
+
+
 # Helper function to filter out tasks from Someday projects
 def filter_someday_project_tasks(todos):
     """Filter out tasks that belong to Someday projects.
@@ -87,7 +118,10 @@ async def get_inbox() -> str:
 @mcp.tool
 async def get_today() -> str:
     """Get todos due today"""
-    todos = things.today(include_items=True)
+    try:
+        todos = things.today(include_items=True)
+    except TypeError:
+        todos = _today_fallback()
     if not todos:
         return "No items found"
     # Filter out tasks from Someday projects
