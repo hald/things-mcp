@@ -71,6 +71,13 @@ class TestConstructUrl:
         url = construct_url("add", params)
         assert "tags=work%2Curgent" in url
     
+    def test_construct_url_encodes_slash_in_values(self):
+        """Slashes in parameter values must be percent-encoded (issue #47)."""
+        params = {"title": "Example 2/13 project title"}
+        url = construct_url("update-project", params)
+        assert "title=Example%202%2F13%20project%20title" in url
+        assert "2/13" not in url
+
     @patch('things.token')
     def test_construct_url_auth_token_update(self, mock_token):
         """Test auth token inclusion for update command."""
