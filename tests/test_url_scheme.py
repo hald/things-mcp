@@ -242,6 +242,15 @@ class TestUpdateTodo:
         url = update_todo(id="todo-123", append_checklist_items=["Extra A", "Extra B"])
         assert "append-checklist-items=Extra%20A%0AExtra%20B" in url
 
+    @patch('things.token')
+    def test_update_todo_add_tags_appends(self, mock_token):
+        """add_tags maps to URL scheme 'add-tags' (append, doesn't replace)."""
+        mock_token.return_value = "auth-token"
+        url = update_todo(id="todo-123", add_tags=["new1", "new2"])
+        assert "add-tags=new1%2Cnew2" in url
+        # 'tags=' (without the add- prefix) should not be present when only add_tags is set
+        assert "&tags=" not in url and not url.endswith("tags=new1%2Cnew2")
+
 
 class TestUpdateProject:
     """Test the update_project function."""
