@@ -1,6 +1,8 @@
 from typing import List
 import logging
 import os
+import re
+from datetime import datetime, timedelta
 import things
 from fastmcp import FastMCP
 from .formatters import format_todo, format_project, format_area, format_tag, format_heading
@@ -177,6 +179,29 @@ async def get_someday() -> str:
     formatted_todos = [format_todo(todo) for todo in todos]
     return "\n\n---\n\n".join(formatted_todos)
 
+_LOGBOOK_PERIOD_RE = re.compile(r'(\d+)([dwmy])')
+_LOGBOOK_PERIOD_DAYS = {'d': 1, 'w': 7, 'm': 30, 'y': 365}
+
+
+def _parse_logbook_period(period: str):
+    """Return a timedelta for strings like '7d', '2w', '3m', '1y', or None."""
+    match = _LOGBOOK_PERIOD_RE.fullmatch(period.strip().lower())
+    if not match:
+        return None
+    return timedelta(days=int(match.group(1)) * _LOGBOOK_PERIOD_DAYS[match.group(2)])
+
+
+def _stop_datetime(todo):
+    """Parse a todo's stop_date into a naive datetime, or None if absent/unparseable."""
+    stop = todo.get('stop_date')
+    if not stop:
+        return None
+    try:
+        return datetime.fromisoformat(str(stop).replace(' ', 'T'))
+    except ValueError:
+        return None
+
+
 @mcp.tool
 async def get_logbook(period: str = "7d", limit: int = 50) -> str:
     """Get completed todos from Logbook, defaults to last 7 days
@@ -185,9 +210,27 @@ async def get_logbook(period: str = "7d", limit: int = 50) -> str:
         period: Time period to look back (e.g., '3d', '1w', '2m', '1y'). Defaults to '7d'
         limit: Maximum number of entries to return. Defaults to 50
     """
-    todos = things.last(period, status='completed', include_items=True)
-    if todos and len(todos) > limit:
-        todos = todos[:limit]
+    # things.last(period, status='completed') filters on creationDate, not
+    # stopDate — so tasks created before the window but completed inside it
+    # are invisible (which is most tasks in real use). Fetch all completed
+    # tasks and filter on stop_date in Python.
+    delta = _parse_logbook_period(period)
+    if delta is None:
+        return (
+            f"Invalid period {period!r}. Use a number followed by d/w/m/y, "
+            "e.g. '7d', '2w', '3m', '1y'."
+        )
+
+    cutoff = datetime.now() - delta
+    all_completed = things.tasks(status='completed', include_items=True) or []
+    in_window = []
+    for todo in all_completed:
+        stopped = _stop_datetime(todo)
+        if stopped is not None and stopped >= cutoff:
+            in_window.append((stopped, todo))
+    in_window.sort(key=lambda pair: pair[0], reverse=True)
+    todos = [t for _, t in in_window[:limit]]
+
     if not todos:
         return "No items found"
     formatted_todos = [format_todo(todo) for todo in todos]
