@@ -1,9 +1,12 @@
+import json
 import pytest
 from unittest.mock import patch, Mock
 import subprocess
+import urllib.parse
 from things_mcp.url_scheme import (
     execute_url, construct_url, add_todo, add_project,
-    update_todo, update_project, show, search, format_when_with_reminder
+    update_todo, update_project, show, search, format_when_with_reminder,
+    json_command,
 )
 
 
@@ -314,3 +317,33 @@ class TestFormatWhenWithReminder:
         when = format_when_with_reminder("2024-06-15", "10:00")
         url = add_todo("Test task", when=when)
         assert "when=2024-06-15%4010%3A00" in url  # @ is %40, : is %3A
+
+
+class TestJsonCommand:
+    """Test the json_command function used for bulk operations."""
+
+    def _decode_data_param(self, url: str):
+        assert url.startswith("things:///json?")
+        parsed = urllib.parse.urlparse(url)
+        qs = urllib.parse.parse_qs(parsed.query)
+        return json.loads(qs['data'][0]), qs
+
+    def test_json_command_includes_auth_token(self):
+        url = json_command([{"type": "to-do", "attributes": {"title": "x"}}], auth_token="abc")
+        _, qs = self._decode_data_param(url)
+        assert qs['auth-token'] == ['abc']
+
+    def test_json_command_skips_token_when_absent(self):
+        url = json_command([{"type": "to-do", "attributes": {"title": "x"}}])
+        assert "auth-token=" not in url
+
+    def test_json_command_serializes_multiple_updates(self):
+        payload = [
+            {"type": "to-do", "operation": "update", "id": "u1",
+             "attributes": {"list-id": "shopping-uuid"}},
+            {"type": "to-do", "operation": "update", "id": "u2",
+             "attributes": {"list-id": "shopping-uuid"}},
+        ]
+        url = json_command(payload, auth_token="t")
+        decoded, _ = self._decode_data_param(url)
+        assert decoded == payload
