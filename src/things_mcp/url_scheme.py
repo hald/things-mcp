@@ -63,7 +63,10 @@ def construct_url(command: str, params: Dict[str, Any]) -> str:
             # Handle lists (for tags, checklist items etc)
             elif isinstance(value, list):
                 value = ','.join(str(v) for v in value)
-            encoded_params.append(f"{key}={urllib.parse.quote(str(value))}")
+            # safe='' so '/' inside values (e.g. "2/13" in a title) is percent-encoded
+            # as %2F. urllib.parse.quote's default safe='/' would leave it as a literal
+            # slash, which Things parses as a path delimiter and silently truncates.
+            encoded_params.append(f"{key}={urllib.parse.quote(str(value), safe='')}")
 
         url += "?" + "&".join(encoded_params)
 
