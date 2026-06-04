@@ -1,7 +1,8 @@
+import json as _json
 import urllib.parse
 import subprocess
 import things
-from typing import Optional, Dict, Any, Union
+from typing import Optional, Dict, Any, List, Union
 
 # When parameter accepted values:
 # - Keywords: "today", "tomorrow", "evening", "anytime", "someday"
@@ -234,6 +235,23 @@ def update_project(id: str, title: Optional[str] = None, notes: Optional[str] = 
         'canceled': canceled
     }
     return construct_url('update-project', {k: v for k, v in params.items() if v is not None})
+
+def json_command(payload: List[Dict[str, Any]], auth_token: Optional[str] = None) -> str:
+    """Construct a URL for Things' multi-operation 'json' endpoint.
+
+    Each entry in payload follows the shape:
+        {"type": "to-do", "operation": "create" | "update", "id"?: "<uuid>",
+         "attributes": {... using hyphenated attribute names ...}}
+
+    auth-token is required by Things whenever payload contains an 'update'
+    operation; we include it whenever supplied so callers don't have to
+    pre-classify the batch.
+    """
+    parts = [f"data={urllib.parse.quote(_json.dumps(payload), safe='')}"]
+    if auth_token:
+        parts.append(f"auth-token={urllib.parse.quote(auth_token, safe='')}")
+    return "things:///json?" + "&".join(parts)
+
 
 def show(id: str, query: Optional[str] = None, filter_tags: Optional[list[str]] = None) -> str:
     """Construct URL to show a specific item or list."""

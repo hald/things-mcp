@@ -598,6 +598,87 @@ async def update_todo(
     return f"Updated todo with ID: {id}"
 
 @mcp.tool
+async def bulk_update_todos(
+    ids: List[str],
+    list: str = None,
+    list_id: str = None,
+    tags: List[str] = None,
+    add_tags: List[str] = None,
+    when: str = None,
+    deadline: str = None,
+    heading: str = None,
+    heading_id: str = None,
+    completed: bool = None,
+    canceled: bool = None,
+) -> str:
+    """Apply the same change to many to-dos in a single Things round-trip.
+
+    Use for weekly-review style operations — e.g. "move every grocery item
+    in my inbox to Shopping List", "tag this batch with 'next-quarter'",
+    "complete all of these". One URL invocation replaces N sequential
+    update_todo calls, which makes 20-task moves feel instant instead of
+    taking minutes.
+
+    All non-None parameters apply to every id in 'ids'. For per-item
+    changes use update_todo individually.
+
+    Args:
+        ids: UUIDs of todos to update
+        list: Project/area title to move all into
+        list_id: Project/area UUID to move all into (takes precedence over list)
+        tags: Replace tags on all (existing tags removed)
+        add_tags: Append tags to all (existing tags preserved)
+        when: Reschedule all (today, tomorrow, evening, anytime, someday, or YYYY-MM-DD)
+        deadline: Set deadline on all (YYYY-MM-DD)
+        heading: Move all under this heading title
+        heading_id: Move all under this heading UUID (takes precedence over heading)
+        completed: Mark all completed
+        canceled: Mark all canceled
+    """
+    if not ids:
+        return "No items to update"
+
+    attributes: dict = {}
+    if list_id is not None:
+        attributes['list-id'] = list_id
+    elif list is not None:
+        attributes['list'] = list
+    if tags is not None:
+        attributes['tags'] = tags
+    if add_tags is not None:
+        attributes['add-tags'] = add_tags
+    if when is not None:
+        attributes['when'] = when
+    if deadline is not None:
+        attributes['deadline'] = deadline
+    if heading_id is not None:
+        attributes['heading-id'] = heading_id
+    elif heading is not None:
+        attributes['heading'] = heading
+    if completed is not None:
+        attributes['completed'] = completed
+    if canceled is not None:
+        attributes['canceled'] = canceled
+
+    if not attributes:
+        return "No changes specified — pass at least one attribute (list, tags, when, …)."
+
+    token = things.token()
+    if not token:
+        return (
+            "THINGS_AUTH_TOKEN not configured. Bulk updates require it. "
+            "Enable in Things → Settings → General → Manage."
+        )
+
+    payload = [
+        {"type": "to-do", "operation": "update", "id": uid, "attributes": attributes}
+        for uid in ids
+    ]
+    url = url_scheme.json_command(payload, auth_token=token)
+    url_scheme.execute_url(url)
+    return f"Submitted bulk update for {len(ids)} todos"
+
+@mcp.tool
 async def update_project(
     id: str,
     title: str = None,

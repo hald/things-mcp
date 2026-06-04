@@ -1,8 +1,11 @@
+import json
+import urllib.parse
 from datetime import datetime, timedelta
 import pytest
 from things_mcp.server import (
     get_todos, get_today, search_todos, search_advanced,
     get_logbook, _parse_logbook_period, _today_fallback, get_tag_usage,
+    bulk_update_todos,
 )
 
 
@@ -254,3 +257,81 @@ async def test_get_tag_usage_empty(mocker):
     mocker.patch('things.tags', return_value=[])
     result = await get_tag_usage.fn()
     assert result == 'No tags found'
+
+
+# --- bulk_update_todos (#22) --------------------------------------------------
+
+def _captured_json_payload(mock_execute_url):
+    """Pull the json payload out of the URL handed to execute_url."""
+    url = mock_execute_url.call_args[0][0]
+    qs = urllib.parse.parse_qs(urllib.parse.urlparse(url).query)
+    return json.loads(qs['data'][0])
+
+
+@pytest.mark.asyncio
+async def test_bulk_update_todos_empty_ids(mocker):
+    mocker.patch('things_mcp.server.url_scheme.execute_url')
+    result = await bulk_update_todos.fn(ids=[], list="Shopping")
+    assert "No items to update" in result
+
+
+@pytest.mark.asyncio
+async def test_bulk_update_todos_no_changes(mocker):
+    mocker.patch('things.token', return_value='tok')
+    mocker.patch('things_mcp.server.url_scheme.execute_url')
+    result = await bulk_update_todos.fn(ids=["u1"])
+    assert "No changes specified" in result
+
+
+@pytest.mark.asyncio
+async def test_bulk_update_todos_missing_token(mocker):
+    mocker.patch('things.token', return_value=None)
+    mocker.patch('things_mcp.server.url_scheme.execute_url')
+    result = await bulk_update_todos.fn(ids=["u1"], list="Shopping")
+    assert "THINGS_AUTH_TOKEN" in result
+
+
+@pytest.mark.asyncio
+async def test_bulk_update_todos_moves_many_in_one_call(mocker):
+    mocker.patch('things.token', return_value='tok')
+    mock_exec = mocker.patch('things_mcp.server.url_scheme.execute_url')
+
+    result = await bulk_update_todos.fn(
+        ids=["u1", "u2", "u3"], list_id="shopping-uuid"
+    )
+
+    # Exactly one URL invocation, not N
+    assert mock_exec.call_count == 1
+    assert "3 todos" in result
+    payload = _captured_json_payload(mock_exec)
+    assert len(payload) == 3
+    assert all(p["operation"] == "update" for p in payload)
+    assert [p["id"] for p in payload] == ["u1", "u2", "u3"]
+    assert all(p["attributes"] == {"list-id": "shopping-uuid"} for p in payload)
+
+
+@pytest.mark.asyncio
+async def test_bulk_update_todos_list_id_overrides_list_title(mocker):
+    mocker.patch('things.token', return_value='tok')
+    mock_exec = mocker.patch('things_mcp.server.url_scheme.execute_url')
+
+    await bulk_update_todos.fn(ids=["u1"], list="By Title", list_id="by-uuid")
+
+    payload = _captured_json_payload(mock_exec)
+    assert payload[0]["attributes"] == {"list-id": "by-uuid"}
+    assert "list" not in payload[0]["attributes"]
+
+
+@pytest.mark.asyncio
+async def test_bulk_update_todos_complete_and_tag(mocker):
+    mocker.patch('things.token', return_value='tok')
+    mock_exec = mocker.patch('things_mcp.server.url_scheme.execute_url')
+
+    await bulk_update_todos.fn(
+        ids=["u1", "u2"], completed=True, add_tags=["reviewed"]
+    )
+
+    payload = _captured_json_payload(mock_exec)
+    for p in payload:
+        assert p["attributes"]["completed"] is True
+        assert p["attributes"]["add-tags"] == ["reviewed"]
