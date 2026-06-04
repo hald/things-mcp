@@ -155,7 +155,10 @@ def update_todo(id: str, title: Optional[str] = None, notes: Optional[str] = Non
                 tags: Optional[list[str]] = None, completed: Optional[bool] = None,
                 canceled: Optional[bool] = None, list: Optional[str] = None,
                 list_id: Optional[str] = None, heading: Optional[str] = None,
-                heading_id: Optional[str] = None) -> str:
+                heading_id: Optional[str] = None,
+                checklist_items: Optional[list[str]] = None,
+                prepend_checklist_items: Optional[list[str]] = None,
+                append_checklist_items: Optional[list[str]] = None) -> str:
     """Construct URL to update an existing todo.
 
     Args:
@@ -174,6 +177,9 @@ def update_todo(id: str, title: Optional[str] = None, notes: Optional[str] = Non
         list_id: UUID of project/area to move to (takes precedence over list)
         heading: Heading title to move under
         heading_id: UUID of heading to move under (takes precedence over heading)
+        checklist_items: Replace the entire checklist with these items
+        prepend_checklist_items: Add these items to the start of the checklist
+        append_checklist_items: Add these items to the end of the checklist
     """
     params = {
         'id': id,
@@ -187,7 +193,10 @@ def update_todo(id: str, title: Optional[str] = None, notes: Optional[str] = Non
         'list': list,
         'list-id': list_id,
         'heading': heading,
-        'heading-id': heading_id
+        'heading-id': heading_id,
+        'checklist-items': '\n'.join(checklist_items) if checklist_items else None,
+        'prepend-checklist-items': '\n'.join(prepend_checklist_items) if prepend_checklist_items else None,
+        'append-checklist-items': '\n'.join(append_checklist_items) if append_checklist_items else None,
     }
     return construct_url('update', {k: v for k, v in params.items() if v is not None})
 

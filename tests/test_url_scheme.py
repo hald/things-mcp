@@ -222,6 +222,27 @@ class TestUpdateTodo:
         assert "heading-id=heading-uuid" in url
 
 
+    @patch('things.token')
+    def test_update_todo_replaces_checklist(self, mock_token):
+        """checklist_items replaces the entire checklist via 'checklist-items' param."""
+        mock_token.return_value = "auth-token"
+        url = update_todo(id="todo-123", checklist_items=["Step 1", "Step 2"])
+        # newline join → "Step 1\nStep 2", then URL-encoded to %0A between items
+        assert "checklist-items=Step%201%0AStep%202" in url
+
+    @patch('things.token')
+    def test_update_todo_prepends_checklist(self, mock_token):
+        mock_token.return_value = "auth-token"
+        url = update_todo(id="todo-123", prepend_checklist_items=["New first"])
+        assert "prepend-checklist-items=New%20first" in url
+
+    @patch('things.token')
+    def test_update_todo_appends_checklist(self, mock_token):
+        mock_token.return_value = "auth-token"
+        url = update_todo(id="todo-123", append_checklist_items=["Extra A", "Extra B"])
+        assert "append-checklist-items=Extra%20A%0AExtra%20B" in url
+
+
 class TestUpdateProject:
     """Test the update_project function."""
     
