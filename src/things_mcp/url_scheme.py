@@ -62,6 +62,47 @@ def add_area(title: str) -> str:
     return result.stdout.strip()
 
 
+def update_area(area_id: str, title: Optional[str] = None,
+                tags: Optional[list[str]] = None) -> None:
+    """Update an existing Area in Things 3 via AppleScript.
+
+    The Things URL scheme has no area operations, so we use AppleScript.
+    Only the parameters that are provided are changed.
+
+    Note: there is deliberately no delete_area — deleting an Area in Things
+    also deletes every project it contains, which is destructive and not
+    recoverable.
+
+    Args:
+        area_id: UUID of the area to update
+        title: New name for the area
+        tags: Tags to set on the area (replaces existing; Things only applies
+            tags that already exist)
+    """
+    def esc(s: str) -> str:
+        return s.replace('\\', '\\\\').replace('"', '\\"')
+
+    statements = []
+    if title is not None:
+        statements.append(f'set name of theArea to "{esc(title)}"')
+    if tags is not None:
+        statements.append(f'set tag names of theArea to "{esc(",".join(tags))}"')
+    if not statements:
+        return
+
+    body = '\n  '.join(statements)
+    applescript = (
+        'tell application "Things3"\n'
+        f'  set theArea to area id "{esc(area_id)}"\n'
+        f'  {body}\n'
+        'end tell'
+    )
+    subprocess.run(
+        ['osascript', '-e', applescript],
+        check=True, capture_output=True, text=True
+    )
+
+
 def construct_url(command: str, params: Dict[str, Any]) -> str:
     """Construct a Things URL from command and parameters."""
     # Start with base URL

@@ -4,7 +4,7 @@ from unittest.mock import patch, Mock
 import subprocess
 import urllib.parse
 from things_mcp.url_scheme import (
-    execute_url, construct_url, add_todo, add_project, add_area,
+    execute_url, construct_url, add_todo, add_project, add_area, update_area,
     update_todo, update_project, show, search, format_when_with_reminder,
     json_command,
 )
@@ -80,6 +80,59 @@ class TestAddArea:
 
         script = mock_run.call_args[0][0][2]
         assert 'name:"foo\\\\bar"' in script
+
+
+class TestUpdateArea:
+    """Test the update_area function (AppleScript-based; URL scheme has no area ops)."""
+
+    @patch('subprocess.run')
+    def test_update_area_renames(self, mock_run):
+        """Setting title emits 'set name of theArea' targeting the given id."""
+        mock_run.return_value = Mock(returncode=0)
+
+        update_area('AREA1', title='Renamed')
+
+        mock_run.assert_called_once()
+        script = mock_run.call_args[0][0][2]
+        assert 'area id "AREA1"' in script
+        assert 'set name of theArea to "Renamed"' in script
+
+    @patch('subprocess.run')
+    def test_update_area_sets_tags(self, mock_run):
+        """Tags are comma-joined into the 'tag names' property."""
+        mock_run.return_value = Mock(returncode=0)
+
+        update_area('AREA1', tags=['Work', 'Home'])
+
+        script = mock_run.call_args[0][0][2]
+        assert 'set tag names of theArea to "Work,Home"' in script
+
+    @patch('subprocess.run')
+    def test_update_area_title_and_tags_together(self, mock_run):
+        """Both fields produce both statements in one AppleScript call."""
+        mock_run.return_value = Mock(returncode=0)
+
+        update_area('AREA1', title='New', tags=['Work'])
+
+        script = mock_run.call_args[0][0][2]
+        assert 'set name of theArea to "New"' in script
+        assert 'set tag names of theArea to "Work"' in script
+
+    @patch('subprocess.run')
+    def test_update_area_escapes_quotes(self, mock_run):
+        """Double quotes in the title are escaped to prevent AppleScript injection."""
+        mock_run.return_value = Mock(returncode=0)
+
+        update_area('AREA1', title='Area "X"')
+
+        script = mock_run.call_args[0][0][2]
+        assert 'set name of theArea to "Area \\"X\\""' in script
+
+    @patch('subprocess.run')
+    def test_update_area_noop_when_nothing_provided(self, mock_run):
+        """With no fields, no AppleScript runs at all."""
+        update_area('AREA1')
+        mock_run.assert_not_called()
 
 
 class TestConstructUrl:

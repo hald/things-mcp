@@ -5,6 +5,7 @@
 ### Features
 
 - **Add Area Creation**: New `add_area` tool creates Areas in Things 3. Since the Things URL scheme has no `add-area` command, this uses AppleScript (`make new area with properties {name:...}`) and returns the new Area's UUID. Title strings are escaped to prevent AppleScript injection. ([#45][p45])
+- **Update Area**: New `update_area` tool renames an Area and/or sets its tags, also via AppleScript. Only provided fields are changed. There is intentionally no `delete_area` tool: deleting an Area in Things also deletes every project it contains, which is destructive and not recoverable.
 
 ### Maintenance
 

@@ -513,6 +513,33 @@ async def add_area(title: str) -> str:
     return f"Created new area: {title} (id: {area_id})"
 
 @mcp.tool
+async def update_area(id: str, title: str = None, tags: List[str] = None) -> str:
+    """Update an existing Area in Things 3 (rename and/or set tags)
+
+    The Things URL scheme has no area operations, so this uses AppleScript.
+    Only the fields you provide are changed.
+
+    Note: there is no delete_area tool by design — deleting an Area in Things
+    also deletes every project it contains, which is destructive and cannot be
+    undone. Areas can be created, read, and updated here, but not deleted.
+
+    Args:
+        id: UUID of the area to update
+        title: New name for the area
+        tags: Tags to set on the area (replaces existing tags; only tags that
+            already exist in Things are applied)
+    """
+    if title is None and tags is None:
+        return "No changes specified — pass title and/or tags."
+    url_scheme.update_area(area_id=id, title=title, tags=tags)
+    changed = []
+    if title is not None:
+        changed.append(f"title={title!r}")
+    if tags is not None:
+        changed.append(f"tags={tags}")
+    return f"Updated area {id}: {', '.join(changed)}"
+
+@mcp.tool
 async def add_project(
     title: str,
     notes: str = None,

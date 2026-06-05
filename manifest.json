@@ -102,6 +102,10 @@
       "description": "Create a new Area in Things 3 (via AppleScript)"
     },
     {
+      "name": "update_area",
+      "description": "Update an existing Area in Things 3 (rename or set tags; via AppleScript)"
+    },
+    {
       "name": "update_todo",
       "description": "Update an existing todo"
     },
