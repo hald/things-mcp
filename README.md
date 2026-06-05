@@ -139,6 +139,13 @@ After installation:
 
 ## Tool Parameters
 
+### Pagination (most read tools)
+The list/search read tools (`get-inbox`, `get-today`, `get-upcoming`, `get-anytime`, `get-someday`, `get-logbook`, `get-trash`, `get-todos`, `get-projects`, `get-areas`, `get-tags`, `get-tagged-items`, `get-headings`, `search-todos`, `search-advanced`, `get-recent`) accept optional pagination:
+- `limit` - Maximum number of items to return (default: all; `get-logbook` defaults to 50)
+- `offset` - Number of items to skip from the start (default: 0)
+
+When neither is set, output is unchanged. When set, a `Showing X-Y of Z items` header is prepended so you know how much more there is. An `offset` past the end is reported distinctly from an empty result.
+
 ### get-todos
 - `project_uuid` (optional) - Filter todos by project
 - `include_items` (optional, default: true) - Include checklist items

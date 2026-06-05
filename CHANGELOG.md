@@ -6,12 +6,14 @@
 
 - **Add Area Creation**: New `add_area` tool creates Areas in Things 3. Since the Things URL scheme has no `add-area` command, this uses AppleScript (`make new area with properties {name:...}`) and returns the new Area's UUID. Title strings are escaped to prevent AppleScript injection. ([#45][p45])
 - **Update Area**: New `update_area` tool renames an Area and/or sets its tags, also via AppleScript. Only provided fields are changed. There is intentionally no `delete_area` tool: deleting an Area in Things also deletes every project it contains, which is destructive and not recoverable.
+- **Response Pagination**: The list and search read tools now accept optional `limit` and `offset` parameters, so large Things lists can be inspected in chunks instead of returning everything at once (which is expensive in LLM/MCP workflows). Default behaviour is unchanged when no pagination is passed; otherwise a `Showing X-Y of Z items` header is added, and an out-of-range `offset` is reported distinctly from an empty result. ([#41][p41])
 
 ### Maintenance
 
 - **FastMCP 3.x**: Migrated to FastMCP 3.x. The dependency pin was an open-ended `fastmcp>=2.0.0`, so fresh installs were already resolving FastMCP 3.x untested; the pin is now bounded to `fastmcp>=3.0.0,<4`. Runtime behaviour is unchanged — in 3.x the `@mcp.tool` decorator returns the original function, so the test suite was updated to call tool functions directly instead of via the removed `.fn` accessor. All 155 tests pass under FastMCP 3.4.0.
 
 [p45]: https://github.com/hald/things-mcp/pull/45
+[p41]: https://github.com/hald/things-mcp/pull/41
 
 ## v0.8.0 - 2026-06-04
 

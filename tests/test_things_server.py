@@ -3,7 +3,7 @@ import urllib.parse
 from datetime import datetime, timedelta
 import pytest
 from things_mcp.server import (
-    get_todos, get_today, search_todos, search_advanced,
+    get_todos, get_today, get_inbox, search_todos, search_advanced,
     get_logbook, _parse_logbook_period, _today_fallback, get_tag_usage,
     bulk_update_todos,
 )
@@ -335,3 +335,80 @@ async def test_bulk_update_todos_complete_and_tag(mocker):
     for p in payload:
         assert p["attributes"]["completed"] is True
         assert p["attributes"]["add-tags"] == ["reviewed"]
+
+
+# --- pagination: limit / offset across read tools (#41) -----------------------
+
+def _ptodo(uuid, title):
+    return {'uuid': uuid, 'title': title, 'type': 'to-do', 'status': 'open'}
+
+
+@pytest.mark.asyncio
+async def test_pagination_no_params_preserves_legacy_output(mocker):
+    """No limit/offset → no 'Showing' header, byte-identical to old behavior."""
+    mocker.patch('things.inbox', return_value=[_ptodo('a', 'Alpha'), _ptodo('b', 'Beta')])
+    result = await get_inbox()
+    assert 'Showing' not in result
+    assert 'Alpha' in result and 'Beta' in result
+
+
+@pytest.mark.asyncio
+async def test_pagination_limit_truncates_with_header(mocker):
+    mocker.patch('things.inbox', return_value=[_ptodo(str(i), f'T{i}') for i in range(5)])
+    result = await get_inbox(limit=2)
+    assert 'Showing 1-2 of 5 items' in result
+    assert 'T0' in result and 'T1' in result and 'T2' not in result
+
+
+@pytest.mark.asyncio
+async def test_pagination_offset_skips(mocker):
+    mocker.patch('things.inbox', return_value=[_ptodo(str(i), f'T{i}') for i in range(5)])
+    result = await get_inbox(limit=2, offset=2)
+    assert 'Showing 3-4 of 5 items' in result
+    assert 'T2' in result and 'T3' in result
+    assert 'T0' not in result and 'T4' not in result
+
+
+@pytest.mark.asyncio
+async def test_pagination_offset_past_end_is_distinct_from_empty(mocker):
+    mocker.patch('things.inbox', return_value=[_ptodo('a', 'Alpha')])
+    result = await get_inbox(offset=5)
+    assert 'offset 5 is past the end' in result
+
+
+@pytest.mark.asyncio
+async def test_pagination_rejects_nonpositive_limit_before_fetch(mocker):
+    inbox = mocker.patch('things.inbox')
+    result = await get_inbox(limit=0)
+    assert 'limit must be' in result
+    inbox.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_pagination_rejects_negative_offset_before_fetch(mocker):
+    inbox = mocker.patch('things.inbox')
+    result = await get_inbox(offset=-1)
+    assert 'offset must be' in result
+    inbox.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_pagination_applies_after_someday_filtering(mocker):
+    """get_today filters Someday-project tasks BEFORE paginating, so the
+    total in the header reflects the filtered count."""
+    mocker.patch('things.today', return_value=[_ptodo(str(i), f'T{i}') for i in range(4)])
+    mocker.patch(
+        'things_mcp.server.filter_someday_project_tasks',
+        side_effect=lambda todos: [t for t in todos if t['title'] != 'T0'],
+    )
+    result = await get_today(limit=2)
+    assert 'Showing 1-2 of 3 items' in result
+    assert 'T1' in result and 'T2' in result and 'T0' not in result
+
+
+@pytest.mark.asyncio
+async def test_get_logbook_supports_offset(mocker):
+    today = datetime.now().date().isoformat()
+    mocker.patch('things.tasks', return_value=[_completed(f'u{i}', f'L{i}', today) for i in range(5)])
+    result = await get_logbook(period='7d', limit=2, offset=2)
+    assert 'Showing 3-4 of 5 items' in result

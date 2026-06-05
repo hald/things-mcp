@@ -107,61 +107,120 @@ def filter_someday_project_tasks(todos):
     return [todo for todo in todos if not _is_in_someday_project(todo, someday_project_ids, heading_to_project)]
 
 
+# Pagination helpers
+def _validate_pagination(limit, offset):
+    """Return an error string if limit/offset are invalid, else None."""
+    if limit is not None and limit <= 0:
+        return "Error: limit must be a positive integer"
+    if offset < 0:
+        return "Error: offset must be zero or a positive integer"
+    return None
+
+
+def _paginate_format(items, formatter, limit, offset, empty_msg, separator="\n\n---\n\n"):
+    """Format a list with optional limit/offset pagination.
+
+    When limit is None and offset is 0, output is byte-identical to the
+    pre-pagination behavior (no header). Otherwise a "Showing X-Y of Z
+    items" header is prepended so the caller knows there is more to fetch.
+    """
+    items = items or []
+    total = len(items)
+
+    # Fast path: preserve exact legacy output when no pagination requested.
+    if limit is None and offset == 0:
+        if not items:
+            return empty_msg
+        return separator.join(formatter(i) for i in items)
+
+    if total == 0:
+        return empty_msg
+    if offset >= total:
+        return f"Showing 0 of {total} items (offset {offset} is past the end)"
+
+    end = total if limit is None else offset + limit
+    page = items[offset:end]
+    header = f"Showing {offset + 1}-{offset + len(page)} of {total} items\n\n"
+    return header + separator.join(formatter(i) for i in page)
+
+
 # List view tools
 @mcp.tool
-async def get_inbox() -> str:
-    """Get todos from Inbox"""
+async def get_inbox(limit: int = None, offset: int = 0) -> str:
+    """Get todos from Inbox
+
+    Args:
+        limit: Maximum number of items to return (default: all)
+        offset: Number of items to skip from the start (default: 0)
+    """
+    err = _validate_pagination(limit, offset)
+    if err:
+        return err
     todos = things.inbox(include_items=True)
-    if not todos:
-        return "No items found"
-    formatted_todos = [format_todo(todo) for todo in todos]
-    return "\n\n---\n\n".join(formatted_todos)
+    return _paginate_format(todos, format_todo, limit, offset, "No items found")
 
 @mcp.tool
-async def get_today() -> str:
-    """Get todos due today"""
+async def get_today(limit: int = None, offset: int = 0) -> str:
+    """Get todos due today
+
+    Args:
+        limit: Maximum number of items to return (default: all)
+        offset: Number of items to skip from the start (default: 0)
+    """
+    err = _validate_pagination(limit, offset)
+    if err:
+        return err
     try:
         todos = things.today(include_items=True)
     except TypeError:
         todos = _today_fallback()
-    if not todos:
-        return "No items found"
-    # Filter out tasks from Someday projects
-    todos = filter_someday_project_tasks(todos)
-    if not todos:
-        return "No items found"
-    formatted_todos = [format_todo(todo) for todo in todos]
-    return "\n\n---\n\n".join(formatted_todos)
+    # Filter out tasks from Someday projects, then paginate
+    todos = filter_someday_project_tasks(todos or [])
+    return _paginate_format(todos, format_todo, limit, offset, "No items found")
 
 @mcp.tool
-async def get_upcoming() -> str:
-    """Get upcoming todos"""
+async def get_upcoming(limit: int = None, offset: int = 0) -> str:
+    """Get upcoming todos
+
+    Args:
+        limit: Maximum number of items to return (default: all)
+        offset: Number of items to skip from the start (default: 0)
+    """
+    err = _validate_pagination(limit, offset)
+    if err:
+        return err
     todos = things.upcoming(include_items=True)
-    if not todos:
-        return "No items found"
-    # Filter out tasks from Someday projects
-    todos = filter_someday_project_tasks(todos)
-    if not todos:
-        return "No items found"
-    formatted_todos = [format_todo(todo) for todo in todos]
-    return "\n\n---\n\n".join(formatted_todos)
+    # Filter out tasks from Someday projects, then paginate
+    todos = filter_someday_project_tasks(todos or [])
+    return _paginate_format(todos, format_todo, limit, offset, "No items found")
 
 @mcp.tool
-async def get_anytime() -> str:
-    """Get todos from Anytime list"""
+async def get_anytime(limit: int = None, offset: int = 0) -> str:
+    """Get todos from Anytime list
+
+    Args:
+        limit: Maximum number of items to return (default: all)
+        offset: Number of items to skip from the start (default: 0)
+    """
+    err = _validate_pagination(limit, offset)
+    if err:
+        return err
     todos = things.anytime(include_items=True)
-    if not todos:
-        return "No items found"
-    # Filter out tasks from Someday projects
-    todos = filter_someday_project_tasks(todos)
-    if not todos:
-        return "No items found"
-    formatted_todos = [format_todo(todo) for todo in todos]
-    return "\n\n---\n\n".join(formatted_todos)
+    # Filter out tasks from Someday projects, then paginate
+    todos = filter_someday_project_tasks(todos or [])
+    return _paginate_format(todos, format_todo, limit, offset, "No items found")
 
 @mcp.tool
-async def get_someday() -> str:
-    """Get todos from Someday list, including tasks in Someday projects"""
+async def get_someday(limit: int = None, offset: int = 0) -> str:
+    """Get todos from Someday list, including tasks in Someday projects
+
+    Args:
+        limit: Maximum number of items to return (default: all)
+        offset: Number of items to skip from the start (default: 0)
+    """
+    err = _validate_pagination(limit, offset)
+    if err:
+        return err
     todos = things.someday(include_items=True)
     if todos is None:
         todos = []
@@ -174,10 +233,7 @@ async def get_someday() -> str:
         for todo in anytime_todos:
             if _is_in_someday_project(todo, someday_project_ids, heading_to_project) and todo['uuid'] not in existing_uuids:
                 todos.append(todo)
-    if not todos:
-        return "No items found"
-    formatted_todos = [format_todo(todo) for todo in todos]
-    return "\n\n---\n\n".join(formatted_todos)
+    return _paginate_format(todos, format_todo, limit, offset, "No items found")
 
 _LOGBOOK_PERIOD_RE = re.compile(r'(\d+)([dwmy])')
 _LOGBOOK_PERIOD_DAYS = {'d': 1, 'w': 7, 'm': 30, 'y': 365}
@@ -203,13 +259,17 @@ def _stop_datetime(todo):
 
 
 @mcp.tool
-async def get_logbook(period: str = "7d", limit: int = 50) -> str:
+async def get_logbook(period: str = "7d", limit: int = 50, offset: int = 0) -> str:
     """Get completed todos from Logbook, defaults to last 7 days
 
     Args:
         period: Time period to look back (e.g., '3d', '1w', '2m', '1y'). Defaults to '7d'
         limit: Maximum number of entries to return. Defaults to 50
+        offset: Number of entries to skip from the start (default: 0)
     """
+    err = _validate_pagination(limit, offset)
+    if err:
+        return err
     # things.last(period, status='completed') filters on creationDate, not
     # stopDate — so tasks created before the window but completed inside it
     # are invisible (which is most tasks in real use). Fetch all completed
@@ -229,99 +289,116 @@ async def get_logbook(period: str = "7d", limit: int = 50) -> str:
         if stopped is not None and stopped >= cutoff:
             in_window.append((stopped, todo))
     in_window.sort(key=lambda pair: pair[0], reverse=True)
-    todos = [t for _, t in in_window[:limit]]
+    todos = [t for _, t in in_window]
 
-    if not todos:
-        return "No items found"
-    formatted_todos = [format_todo(todo) for todo in todos]
-    return "\n\n---\n\n".join(formatted_todos)
+    return _paginate_format(todos, format_todo, limit, offset, "No items found")
 
 @mcp.tool
-async def get_trash() -> str:
-    """Get trashed todos"""
+async def get_trash(limit: int = None, offset: int = 0) -> str:
+    """Get trashed todos
+
+    Args:
+        limit: Maximum number of items to return (default: all)
+        offset: Number of items to skip from the start (default: 0)
+    """
+    err = _validate_pagination(limit, offset)
+    if err:
+        return err
     todos = things.trash(include_items=True)
-    if not todos:
-        return "No items found"
-    formatted_todos = [format_todo(todo) for todo in todos]
-    return "\n\n---\n\n".join(formatted_todos)
+    return _paginate_format(todos, format_todo, limit, offset, "No items found")
 
 # Basic operations
 @mcp.tool
-async def get_todos(project_uuid: str = None, include_items: bool = True) -> str:
+async def get_todos(project_uuid: str = None, include_items: bool = True,
+                    limit: int = None, offset: int = 0) -> str:
     """Get todos from Things, optionally filtered by project
 
     Args:
         project_uuid: Optional UUID of a specific project to get todos from
         include_items: Include checklist items
+        limit: Maximum number of items to return (default: all)
+        offset: Number of items to skip from the start (default: 0)
     """
+    err = _validate_pagination(limit, offset)
+    if err:
+        return err
     if project_uuid:
         project = things.get(project_uuid)
         if not project or project.get('type') != 'project':
             return f"Error: Invalid project UUID '{project_uuid}'"
 
     todos = things.todos(project=project_uuid, start=None, include_items=include_items)
-    if not todos:
-        return "No todos found"
-
-    formatted_todos = [format_todo(todo) for todo in todos]
-    return "\n\n---\n\n".join(formatted_todos)
+    return _paginate_format(todos, format_todo, limit, offset, "No todos found")
 
 @mcp.tool
-async def get_projects(include_items: bool = False) -> str:
+async def get_projects(include_items: bool = False, limit: int = None, offset: int = 0) -> str:
     """Get all projects from Things
 
     Args:
         include_items: Include tasks within projects
+        limit: Maximum number of items to return (default: all)
+        offset: Number of items to skip from the start (default: 0)
     """
+    err = _validate_pagination(limit, offset)
+    if err:
+        return err
     projects = things.projects()
-    if not projects:
-        return "No projects found"
-
-    formatted_projects = [format_project(project, include_items) for project in projects]
-    return "\n\n---\n\n".join(formatted_projects)
+    return _paginate_format(
+        projects, lambda p: format_project(p, include_items),
+        limit, offset, "No projects found"
+    )
 
 @mcp.tool
-async def get_areas(include_items: bool = False) -> str:
+async def get_areas(include_items: bool = False, limit: int = None, offset: int = 0) -> str:
     """Get all areas from Things
 
     Args:
         include_items: Include projects and tasks within areas
+        limit: Maximum number of items to return (default: all)
+        offset: Number of items to skip from the start (default: 0)
     """
+    err = _validate_pagination(limit, offset)
+    if err:
+        return err
     areas = things.areas()
-    if not areas:
-        return "No areas found"
-
-    formatted_areas = [format_area(area, include_items) for area in areas]
-    return "\n\n---\n\n".join(formatted_areas)
+    return _paginate_format(
+        areas, lambda a: format_area(a, include_items),
+        limit, offset, "No areas found"
+    )
 
 # Tag operations
 @mcp.tool
-async def get_tags(include_items: bool = False) -> str:
+async def get_tags(include_items: bool = False, limit: int = None, offset: int = 0) -> str:
     """Get all tags
 
     Args:
         include_items: Include items tagged with each tag
+        limit: Maximum number of items to return (default: all)
+        offset: Number of items to skip from the start (default: 0)
     """
+    err = _validate_pagination(limit, offset)
+    if err:
+        return err
     tags = things.tags()
-    if not tags:
-        return "No tags found"
-
-    formatted_tags = [format_tag(tag, include_items) for tag in tags]
-    return "\n\n---\n\n".join(formatted_tags)
+    return _paginate_format(
+        tags, lambda t: format_tag(t, include_items),
+        limit, offset, "No tags found"
+    )
 
 @mcp.tool
-async def get_tagged_items(tag: str) -> str:
+async def get_tagged_items(tag: str, limit: int = None, offset: int = 0) -> str:
     """Get items with a specific tag
 
     Args:
         tag: Tag title to filter by
+        limit: Maximum number of items to return (default: all)
+        offset: Number of items to skip from the start (default: 0)
     """
+    err = _validate_pagination(limit, offset)
+    if err:
+        return err
     todos = things.todos(tag=tag, include_items=True)
-    if not todos:
-        return f"No items found with tag '{tag}'"
-
-    formatted_todos = [format_todo(todo) for todo in todos]
-    return "\n\n---\n\n".join(formatted_todos)
+    return _paginate_format(todos, format_todo, limit, offset, f"No items found with tag '{tag}'")
 
 @mcp.tool
 async def get_tag_usage(only_unused: bool = False) -> str:
@@ -358,12 +435,17 @@ async def get_tag_usage(only_unused: bool = False) -> str:
     return "\n".join(f"{name}: {open_c} open, {all_c} total" for name, open_c, all_c in rows)
 
 @mcp.tool
-async def get_headings(project_uuid: str = None) -> str:
+async def get_headings(project_uuid: str = None, limit: int = None, offset: int = 0) -> str:
     """Get headings from Things
 
     Args:
         project_uuid: Optional UUID of a specific project to get headings from
+        limit: Maximum number of items to return (default: all)
+        offset: Number of items to skip from the start (default: 0)
     """
+    err = _validate_pagination(limit, offset)
+    if err:
+        return err
     if project_uuid:
         project = things.get(project_uuid)
         if not project or project.get('type') != 'project':
@@ -372,26 +454,23 @@ async def get_headings(project_uuid: str = None) -> str:
     else:
         headings = things.tasks(type='heading')
 
-    if not headings:
-        return "No headings found"
-
-    formatted_headings = [format_heading(heading) for heading in headings]
-    return "\n\n---\n\n".join(formatted_headings)
+    return _paginate_format(headings, format_heading, limit, offset, "No headings found")
 
 # Search operations
 @mcp.tool
-async def search_todos(query: str) -> str:
+async def search_todos(query: str, limit: int = None, offset: int = 0) -> str:
     """Search todos by title or notes
 
     Args:
         query: Search term to look for in todo titles and notes
+        limit: Maximum number of items to return (default: all)
+        offset: Number of items to skip from the start (default: 0)
     """
+    err = _validate_pagination(limit, offset)
+    if err:
+        return err
     todos = things.search(query, include_items=True)
-    if not todos:
-        return f"No todos found matching '{query}'"
-
-    formatted_todos = [format_todo(todo) for todo in todos]
-    return "\n\n---\n\n".join(formatted_todos)
+    return _paginate_format(todos, format_todo, limit, offset, f"No todos found matching '{query}'")
 
 @mcp.tool
 async def search_advanced(
@@ -401,7 +480,9 @@ async def search_advanced(
     tag: str = None,
     area: str = None,
     type: str = None,
-    last: str = None
+    last: str = None,
+    limit: int = None,
+    offset: int = 0
 ) -> str:
     """Advanced todo search with multiple filters
 
@@ -413,7 +494,12 @@ async def search_advanced(
         area: Filter by area UUID
         type: Filter by item type (to-do, project, heading)
         last: Filter by creation date (e.g., '3d' for last 3 days, '1w' for last week, '1y' for last year)
+        limit: Maximum number of items to return (default: all)
+        offset: Number of items to skip from the start (default: 0)
     """
+    err = _validate_pagination(limit, offset)
+    if err:
+        return err
     search_params = {}
     if status:
         search_params["status"] = status
@@ -434,26 +520,23 @@ async def search_advanced(
         todos = things.tasks(type=type, include_items=True, **search_params)
     else:
         todos = things.todos(include_items=True, **search_params)
-    if not todos:
-        return "No matching todos found"
-
-    formatted_todos = [format_todo(todo) for todo in todos]
-    return "\n\n---\n\n".join(formatted_todos)
+    return _paginate_format(todos, format_todo, limit, offset, "No matching todos found")
 
 # Recent items
 @mcp.tool
-async def get_recent(period: str) -> str:
+async def get_recent(period: str, limit: int = None, offset: int = 0) -> str:
     """Get recently created items
 
     Args:
         period: Time period (e.g., '3d', '1w', '2m', '1y')
+        limit: Maximum number of items to return (default: all)
+        offset: Number of items to skip from the start (default: 0)
     """
+    err = _validate_pagination(limit, offset)
+    if err:
+        return err
     todos = things.last(period, include_items=True)
-    if not todos:
-        return f"No items found in the last {period}"
-
-    formatted_todos = [format_todo(todo) for todo in todos]
-    return "\n\n---\n\n".join(formatted_todos)
+    return _paginate_format(todos, format_todo, limit, offset, f"No items found in the last {period}")
 
 # Things URL Scheme tools
 @mcp.tool
