@@ -14,7 +14,7 @@ async def test_get_todos_includes_checklist(mocker, mock_todo):
     mock_things_todos = mocker.patch('things.todos')
     mock_things_todos.return_value = [mock_todo]
 
-    result = await get_todos.fn(include_items=True)
+    result = await get_todos(include_items=True)
 
     assert "Checklist:" in result
     assert "First item" in result
@@ -26,7 +26,7 @@ async def test_get_today_includes_checklist(mocker, mock_todo):
     mock_today = mocker.patch('things.today')
     mock_today.return_value = [mock_todo]
 
-    result = await get_today.fn()
+    result = await get_today()
 
     assert "Checklist:" in result
     assert "First item" in result
@@ -55,7 +55,7 @@ async def test_get_today_recovers_from_things_py_sort_typeerror(mocker, mock_tod
     }
     mock_tasks.side_effect = [[mock_todo], [], [overdue]]
 
-    result = await get_today.fn()
+    result = await get_today()
 
     assert "Test Todo" in result
     assert "Overdue with no start_date" in result
@@ -79,7 +79,7 @@ async def test_search_todos_includes_checklist(mocker, mock_todo):
     mock_search = mocker.patch('things.search')
     mock_search.return_value = [mock_todo]
 
-    result = await search_todos.fn("Test")
+    result = await search_todos("Test")
 
     assert "Checklist:" in result
     assert "First item" in result
@@ -92,7 +92,7 @@ async def test_search_advanced_with_type_project(mocker, mock_project):
     mock_things_tasks = mocker.patch('things.tasks')
     mock_things_tasks.return_value = [mock_project]
 
-    result = await search_advanced.fn(type="project")
+    result = await search_advanced(type="project")
 
     # Should call things.tasks() with type parameter, not things.todos()
     mock_things_tasks.assert_called_once_with(
@@ -107,7 +107,7 @@ async def test_search_advanced_without_type(mocker, mock_todo):
     mock_things_todos = mocker.patch('things.todos')
     mock_things_todos.return_value = [mock_todo]
 
-    result = await search_advanced.fn(status="incomplete")
+    result = await search_advanced(status="incomplete")
 
     # Should call things.todos() when no type specified
     mock_things_todos.assert_called_once_with(
@@ -149,7 +149,7 @@ async def test_get_logbook_includes_tasks_completed_in_window_even_if_created_ea
     long_ago_completed_recently = _completed('a', 'Old task done today', today)
     mocker.patch('things.tasks', return_value=[long_ago_completed_recently])
 
-    result = await get_logbook.fn(period='7d')
+    result = await get_logbook(period='7d')
 
     assert 'Old task done today' in result
 
@@ -163,7 +163,7 @@ async def test_get_logbook_excludes_tasks_completed_before_window(mocker):
         _completed('b', 'Outside window', long_ago),
     ])
 
-    result = await get_logbook.fn(period='7d')
+    result = await get_logbook(period='7d')
 
     assert 'Within window' in result
     assert 'Outside window' not in result
@@ -180,7 +180,7 @@ async def test_get_logbook_sorts_newest_completion_first(mocker):
         _completed('c', 'Yesterday', yesterday),
     ])
 
-    result = await get_logbook.fn(period='7d')
+    result = await get_logbook(period='7d')
 
     assert result.index('Today') < result.index('Yesterday') < result.index('Two days ago')
 
@@ -192,7 +192,7 @@ async def test_get_logbook_respects_limit(mocker):
         _completed(f'u{i}', f'Task {i}', today) for i in range(10)
     ])
 
-    result = await get_logbook.fn(period='7d', limit=3)
+    result = await get_logbook(period='7d', limit=3)
 
     assert sum(1 for line in result.split('\n') if line.startswith('Title:')) == 3
 
@@ -201,7 +201,7 @@ async def test_get_logbook_respects_limit(mocker):
 async def test_get_logbook_invalid_period(mocker):
     mocker.patch('things.tasks', return_value=[])
 
-    result = await get_logbook.fn(period='lol')
+    result = await get_logbook(period='lol')
 
     assert 'Invalid period' in result
 
@@ -227,7 +227,7 @@ async def test_get_tag_usage_sorts_by_total_desc(mocker):
         all_counts={'work': 30, 'home': 10, 'shopping': 0},
     )
 
-    result = await get_tag_usage.fn()
+    result = await get_tag_usage()
 
     lines = result.split('\n')
     assert lines[0].startswith('work:')
@@ -245,7 +245,7 @@ async def test_get_tag_usage_only_unused(mocker):
         all_counts={'work': 30, 'old-tag-1': 0, 'old-tag-2': 0},
     )
 
-    result = await get_tag_usage.fn(only_unused=True)
+    result = await get_tag_usage(only_unused=True)
 
     assert 'old-tag-1' in result
     assert 'old-tag-2' in result
@@ -255,7 +255,7 @@ async def test_get_tag_usage_only_unused(mocker):
 @pytest.mark.asyncio
 async def test_get_tag_usage_empty(mocker):
     mocker.patch('things.tags', return_value=[])
-    result = await get_tag_usage.fn()
+    result = await get_tag_usage()
     assert result == 'No tags found'
 
 
@@ -271,7 +271,7 @@ def _captured_json_payload(mock_execute_url):
 @pytest.mark.asyncio
 async def test_bulk_update_todos_empty_ids(mocker):
     mocker.patch('things_mcp.server.url_scheme.execute_url')
-    result = await bulk_update_todos.fn(ids=[], list="Shopping")
+    result = await bulk_update_todos(ids=[], list="Shopping")
     assert "No items to update" in result
 
 
@@ -279,7 +279,7 @@ async def test_bulk_update_todos_empty_ids(mocker):
 async def test_bulk_update_todos_no_changes(mocker):
     mocker.patch('things.token', return_value='tok')
     mocker.patch('things_mcp.server.url_scheme.execute_url')
-    result = await bulk_update_todos.fn(ids=["u1"])
+    result = await bulk_update_todos(ids=["u1"])
     assert "No changes specified" in result
 
 
@@ -287,7 +287,7 @@ async def test_bulk_update_todos_no_changes(mocker):
 async def test_bulk_update_todos_missing_token(mocker):
     mocker.patch('things.token', return_value=None)
     mocker.patch('things_mcp.server.url_scheme.execute_url')
-    result = await bulk_update_todos.fn(ids=["u1"], list="Shopping")
+    result = await bulk_update_todos(ids=["u1"], list="Shopping")
     assert "THINGS_AUTH_TOKEN" in result
 
 
@@ -296,7 +296,7 @@ async def test_bulk_update_todos_moves_many_in_one_call(mocker):
     mocker.patch('things.token', return_value='tok')
     mock_exec = mocker.patch('things_mcp.server.url_scheme.execute_url')
 
-    result = await bulk_update_todos.fn(
+    result = await bulk_update_todos(
         ids=["u1", "u2", "u3"], list_id="shopping-uuid"
     )
 
@@ -315,7 +315,7 @@ async def test_bulk_update_todos_list_id_overrides_list_title(mocker):
     mocker.patch('things.token', return_value='tok')
     mock_exec = mocker.patch('things_mcp.server.url_scheme.execute_url')
 
-    await bulk_update_todos.fn(ids=["u1"], list="By Title", list_id="by-uuid")
+    await bulk_update_todos(ids=["u1"], list="By Title", list_id="by-uuid")
 
     payload = _captured_json_payload(mock_exec)
     assert payload[0]["attributes"] == {"list-id": "by-uuid"}
@@ -327,7 +327,7 @@ async def test_bulk_update_todos_complete_and_tag(mocker):
     mocker.patch('things.token', return_value='tok')
     mock_exec = mocker.patch('things_mcp.server.url_scheme.execute_url')
 
-    await bulk_update_todos.fn(
+    await bulk_update_todos(
         ids=["u1", "u2"], completed=True, add_tags=["reviewed"]
     )
 

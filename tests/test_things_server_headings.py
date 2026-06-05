@@ -23,7 +23,7 @@ async def test_get_headings_all(mocker):
         }
     ]
     
-    result = await get_headings.fn()
+    result = await get_headings()
     
     assert "Phase 1" in result
     assert "Phase 2" in result
@@ -48,7 +48,7 @@ async def test_get_headings_by_project(mocker):
         }
     ]
     
-    result = await get_headings.fn(project_uuid='project-uuid')
+    result = await get_headings(project_uuid='project-uuid')
     
     assert "Sprint 1" in result
     assert "Test Project" in result
@@ -62,7 +62,7 @@ async def test_get_headings_invalid_project(mocker):
     mock_get = mocker.patch('things.get')
     mock_get.return_value = {'type': 'to-do', 'title': 'Not a Project'}
     
-    result = await get_headings.fn(project_uuid='invalid-uuid')
+    result = await get_headings(project_uuid='invalid-uuid')
     
     assert "Error: Invalid project UUID" in result
     mock_get.assert_called_once_with('invalid-uuid')
@@ -74,7 +74,7 @@ async def test_get_headings_no_headings(mocker):
     mock_tasks = mocker.patch('things.tasks')
     mock_tasks.return_value = []
     
-    result = await get_headings.fn()
+    result = await get_headings()
     
     assert "No headings found" in result
     mock_tasks.assert_called_once_with(type='heading')

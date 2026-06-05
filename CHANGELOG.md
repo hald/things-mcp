@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.8.1 - 2026-06-05
+
+### Maintenance
+
+- **FastMCP 3.x**: Migrated to FastMCP 3.x. The dependency pin was an open-ended `fastmcp>=2.0.0`, so fresh installs were already resolving FastMCP 3.x untested; the pin is now bounded to `fastmcp>=3.0.0,<4`. Runtime behaviour is unchanged — in 3.x the `@mcp.tool` decorator returns the original function, so the test suite was updated to call tool functions directly instead of via the removed `.fn` accessor. All 155 tests pass under FastMCP 3.4.0.
+
 ## v0.8.0 - 2026-06-04
 
 ### Bug fixes
