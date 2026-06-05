@@ -146,6 +146,8 @@ The list/search read tools (`get-inbox`, `get-today`, `get-upcoming`, `get-anyti
 
 When neither is set, output is unchanged. When set, a `Showing X-Y of Z items` header is prepended so you know how much more there is. An `offset` past the end is reported distinctly from an empty result.
 
+These same read tools also return **structured content** alongside the human-readable text: MCP clients receive the raw item dicts plus `count`/`total`/`offset`/`limit` under `structured_content`, so data can be consumed programmatically without parsing the formatted text.
+
 ### get-todos
 - `project_uuid` (optional) - Filter todos by project
 - `include_items` (optional, default: true) - Include checklist items

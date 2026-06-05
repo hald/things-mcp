@@ -2,6 +2,7 @@ import json
 import urllib.parse
 from datetime import datetime, timedelta
 import pytest
+from tests._helpers import tool_text
 from things_mcp.server import (
     get_todos, get_today, get_inbox, search_todos, search_advanced,
     get_logbook, _parse_logbook_period, _today_fallback, get_tag_usage,
@@ -16,9 +17,51 @@ async def test_get_todos_includes_checklist(mocker, mock_todo):
 
     result = await get_todos(include_items=True)
 
-    assert "Checklist:" in result
-    assert "First item" in result
+    # get_todos now returns a ToolResult: human-readable text in channel 1...
+    text = result.content[0].text
+    assert "Checklist:" in text
+    assert "First item" in text
     mock_things_todos.assert_called_once_with(project=None, start=None, include_items=True)
+
+
+@pytest.mark.asyncio
+async def test_get_todos_returns_structured_content(mocker, mock_todo):
+    """get_todos also exposes structured JSON (channel 2) for programmatic clients."""
+    mocker.patch('things.todos', return_value=[mock_todo])
+
+    result = await get_todos(include_items=True)
+
+    sc = result.structured_content
+    assert sc["count"] == 1
+    assert sc["total"] == 1
+    assert sc["items"][0]["uuid"] == mock_todo["uuid"]
+    # raw things.py dicts (which can contain date objects) are JSON-safe
+    import json as _json
+    _json.dumps(sc)  # must not raise
+
+
+@pytest.mark.asyncio
+async def test_get_todos_structured_reflects_pagination(mocker):
+    """structured_content paginates in lockstep with the text and reports totals."""
+    mocker.patch('things.todos', return_value=[
+        {'uuid': str(i), 'title': f'T{i}', 'type': 'to-do', 'status': 'open'} for i in range(5)
+    ])
+
+    result = await get_todos(limit=2, offset=1)
+
+    sc = result.structured_content
+    assert sc["total"] == 5
+    assert sc["count"] == 2
+    assert [it["uuid"] for it in sc["items"]] == ["1", "2"]
+    assert "Showing 2-3 of 5 items" in result.content[0].text
+
+
+@pytest.mark.asyncio
+async def test_get_todos_invalid_project_uuid_structured_error(mocker):
+    mocker.patch('things.get', return_value=None)
+    result = await get_todos(project_uuid="bad")
+    assert "Invalid project UUID" in result.content[0].text
+    assert "error" in result.structured_content
 
 
 @pytest.mark.asyncio
@@ -26,7 +69,7 @@ async def test_get_today_includes_checklist(mocker, mock_todo):
     mock_today = mocker.patch('things.today')
     mock_today.return_value = [mock_todo]
 
-    result = await get_today()
+    result = tool_text(await get_today())
 
     assert "Checklist:" in result
     assert "First item" in result
@@ -55,7 +98,7 @@ async def test_get_today_recovers_from_things_py_sort_typeerror(mocker, mock_tod
     }
     mock_tasks.side_effect = [[mock_todo], [], [overdue]]
 
-    result = await get_today()
+    result = tool_text(await get_today())
 
     assert "Test Todo" in result
     assert "Overdue with no start_date" in result
@@ -79,7 +122,7 @@ async def test_search_todos_includes_checklist(mocker, mock_todo):
     mock_search = mocker.patch('things.search')
     mock_search.return_value = [mock_todo]
 
-    result = await search_todos("Test")
+    result = tool_text(await search_todos("Test"))
 
     assert "Checklist:" in result
     assert "First item" in result
@@ -92,7 +135,7 @@ async def test_search_advanced_with_type_project(mocker, mock_project):
     mock_things_tasks = mocker.patch('things.tasks')
     mock_things_tasks.return_value = [mock_project]
 
-    result = await search_advanced(type="project")
+    result = tool_text(await search_advanced(type="project"))
 
     # Should call things.tasks() with type parameter, not things.todos()
     mock_things_tasks.assert_called_once_with(
@@ -107,7 +150,7 @@ async def test_search_advanced_without_type(mocker, mock_todo):
     mock_things_todos = mocker.patch('things.todos')
     mock_things_todos.return_value = [mock_todo]
 
-    result = await search_advanced(status="incomplete")
+    result = tool_text(await search_advanced(status="incomplete"))
 
     # Should call things.todos() when no type specified
     mock_things_todos.assert_called_once_with(
@@ -149,7 +192,7 @@ async def test_get_logbook_includes_tasks_completed_in_window_even_if_created_ea
     long_ago_completed_recently = _completed('a', 'Old task done today', today)
     mocker.patch('things.tasks', return_value=[long_ago_completed_recently])
 
-    result = await get_logbook(period='7d')
+    result = tool_text(await get_logbook(period='7d'))
 
     assert 'Old task done today' in result
 
@@ -163,7 +206,7 @@ async def test_get_logbook_excludes_tasks_completed_before_window(mocker):
         _completed('b', 'Outside window', long_ago),
     ])
 
-    result = await get_logbook(period='7d')
+    result = tool_text(await get_logbook(period='7d'))
 
     assert 'Within window' in result
     assert 'Outside window' not in result
@@ -180,7 +223,7 @@ async def test_get_logbook_sorts_newest_completion_first(mocker):
         _completed('c', 'Yesterday', yesterday),
     ])
 
-    result = await get_logbook(period='7d')
+    result = tool_text(await get_logbook(period='7d'))
 
     assert result.index('Today') < result.index('Yesterday') < result.index('Two days ago')
 
@@ -192,7 +235,7 @@ async def test_get_logbook_respects_limit(mocker):
         _completed(f'u{i}', f'Task {i}', today) for i in range(10)
     ])
 
-    result = await get_logbook(period='7d', limit=3)
+    result = tool_text(await get_logbook(period='7d', limit=3))
 
     assert sum(1 for line in result.split('\n') if line.startswith('Title:')) == 3
 
@@ -201,7 +244,7 @@ async def test_get_logbook_respects_limit(mocker):
 async def test_get_logbook_invalid_period(mocker):
     mocker.patch('things.tasks', return_value=[])
 
-    result = await get_logbook(period='lol')
+    result = tool_text(await get_logbook(period='lol'))
 
     assert 'Invalid period' in result
 
@@ -347,7 +390,7 @@ def _ptodo(uuid, title):
 async def test_pagination_no_params_preserves_legacy_output(mocker):
     """No limit/offset → no 'Showing' header, byte-identical to old behavior."""
     mocker.patch('things.inbox', return_value=[_ptodo('a', 'Alpha'), _ptodo('b', 'Beta')])
-    result = await get_inbox()
+    result = tool_text(await get_inbox())
     assert 'Showing' not in result
     assert 'Alpha' in result and 'Beta' in result
 
@@ -355,7 +398,7 @@ async def test_pagination_no_params_preserves_legacy_output(mocker):
 @pytest.mark.asyncio
 async def test_pagination_limit_truncates_with_header(mocker):
     mocker.patch('things.inbox', return_value=[_ptodo(str(i), f'T{i}') for i in range(5)])
-    result = await get_inbox(limit=2)
+    result = tool_text(await get_inbox(limit=2))
     assert 'Showing 1-2 of 5 items' in result
     assert 'T0' in result and 'T1' in result and 'T2' not in result
 
@@ -363,7 +406,7 @@ async def test_pagination_limit_truncates_with_header(mocker):
 @pytest.mark.asyncio
 async def test_pagination_offset_skips(mocker):
     mocker.patch('things.inbox', return_value=[_ptodo(str(i), f'T{i}') for i in range(5)])
-    result = await get_inbox(limit=2, offset=2)
+    result = tool_text(await get_inbox(limit=2, offset=2))
     assert 'Showing 3-4 of 5 items' in result
     assert 'T2' in result and 'T3' in result
     assert 'T0' not in result and 'T4' not in result
@@ -372,14 +415,14 @@ async def test_pagination_offset_skips(mocker):
 @pytest.mark.asyncio
 async def test_pagination_offset_past_end_is_distinct_from_empty(mocker):
     mocker.patch('things.inbox', return_value=[_ptodo('a', 'Alpha')])
-    result = await get_inbox(offset=5)
+    result = tool_text(await get_inbox(offset=5))
     assert 'offset 5 is past the end' in result
 
 
 @pytest.mark.asyncio
 async def test_pagination_rejects_nonpositive_limit_before_fetch(mocker):
     inbox = mocker.patch('things.inbox')
-    result = await get_inbox(limit=0)
+    result = tool_text(await get_inbox(limit=0))
     assert 'limit must be' in result
     inbox.assert_not_called()
 
@@ -387,7 +430,7 @@ async def test_pagination_rejects_nonpositive_limit_before_fetch(mocker):
 @pytest.mark.asyncio
 async def test_pagination_rejects_negative_offset_before_fetch(mocker):
     inbox = mocker.patch('things.inbox')
-    result = await get_inbox(offset=-1)
+    result = tool_text(await get_inbox(offset=-1))
     assert 'offset must be' in result
     inbox.assert_not_called()
 
@@ -401,7 +444,7 @@ async def test_pagination_applies_after_someday_filtering(mocker):
         'things_mcp.server.filter_someday_project_tasks',
         side_effect=lambda todos: [t for t in todos if t['title'] != 'T0'],
     )
-    result = await get_today(limit=2)
+    result = tool_text(await get_today(limit=2))
     assert 'Showing 1-2 of 3 items' in result
     assert 'T1' in result and 'T2' in result and 'T0' not in result
 
@@ -410,5 +453,5 @@ async def test_pagination_applies_after_someday_filtering(mocker):
 async def test_get_logbook_supports_offset(mocker):
     today = datetime.now().date().isoformat()
     mocker.patch('things.tasks', return_value=[_completed(f'u{i}', f'L{i}', today) for i in range(5)])
-    result = await get_logbook(period='7d', limit=2, offset=2)
+    result = tool_text(await get_logbook(period='7d', limit=2, offset=2))
     assert 'Showing 3-4 of 5 items' in result

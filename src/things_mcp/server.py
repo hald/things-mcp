@@ -1,10 +1,12 @@
 from typing import List
+import json
 import logging
 import os
 import re
 from datetime import datetime, timedelta
 import things
 from fastmcp import FastMCP
+from fastmcp.tools.tool import ToolResult
 from .formatters import format_todo, format_project, format_area, format_tag, format_heading
 from . import url_scheme
 
@@ -144,9 +146,47 @@ def _paginate_format(items, formatter, limit, offset, empty_msg, separator="\n\n
     return header + separator.join(formatter(i) for i in page)
 
 
+def _paginate_result(items, formatter, limit, offset, empty_msg, separator="\n\n---\n\n"):
+    """Like _paginate_format, but returns a FastMCP ToolResult that carries
+    BOTH the human-readable text (channel 1) AND JSON-safe structured data
+    (channel 2) under structured_content.
+
+    This is the pattern for opting a tool into structured output on FastMCP
+    3.x while preserving the nicely formatted text. The text is identical to
+    what _paginate_format produces; structured_content adds the raw item
+    dicts plus pagination metadata so programmatic clients don't have to
+    scrape the prose.
+    """
+    text = _paginate_format(items, formatter, limit, offset, empty_msg, separator)
+    items = items or []
+    total = len(items)
+    end = total if limit is None else offset + limit
+    page = [] if offset >= total else items[offset:end]
+    # structured_content carries the same data the text renders — the full
+    # item dicts (including nested checklist / sub-items). things.py dicts
+    # contain datetime.date objects, which aren't JSON serializable, so coerce
+    # the payload to JSON-safe primitives. Use `limit` to bound large lists;
+    # it shrinks both channels together.
+    safe_items = json.loads(json.dumps(page, default=str))
+    structured = {
+        "items": safe_items,
+        "count": len(safe_items),
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+    }
+    return ToolResult(content=text, structured_content=structured)
+
+
+def _error_result(msg):
+    """ToolResult for an error / early-return path: human-readable text plus a
+    structured {"error": msg} so structured-output clients see it too."""
+    return ToolResult(content=msg, structured_content={"error": msg})
+
+
 # List view tools
 @mcp.tool
-async def get_inbox(limit: int = None, offset: int = 0) -> str:
+async def get_inbox(limit: int = None, offset: int = 0) -> ToolResult:
     """Get todos from Inbox
 
     Args:
@@ -155,12 +195,12 @@ async def get_inbox(limit: int = None, offset: int = 0) -> str:
     """
     err = _validate_pagination(limit, offset)
     if err:
-        return err
+        return _error_result(err)
     todos = things.inbox(include_items=True)
-    return _paginate_format(todos, format_todo, limit, offset, "No items found")
+    return _paginate_result(todos, format_todo, limit, offset, "No items found")
 
 @mcp.tool
-async def get_today(limit: int = None, offset: int = 0) -> str:
+async def get_today(limit: int = None, offset: int = 0) -> ToolResult:
     """Get todos due today
 
     Args:
@@ -169,17 +209,17 @@ async def get_today(limit: int = None, offset: int = 0) -> str:
     """
     err = _validate_pagination(limit, offset)
     if err:
-        return err
+        return _error_result(err)
     try:
         todos = things.today(include_items=True)
     except TypeError:
         todos = _today_fallback()
     # Filter out tasks from Someday projects, then paginate
     todos = filter_someday_project_tasks(todos or [])
-    return _paginate_format(todos, format_todo, limit, offset, "No items found")
+    return _paginate_result(todos, format_todo, limit, offset, "No items found")
 
 @mcp.tool
-async def get_upcoming(limit: int = None, offset: int = 0) -> str:
+async def get_upcoming(limit: int = None, offset: int = 0) -> ToolResult:
     """Get upcoming todos
 
     Args:
@@ -188,14 +228,14 @@ async def get_upcoming(limit: int = None, offset: int = 0) -> str:
     """
     err = _validate_pagination(limit, offset)
     if err:
-        return err
+        return _error_result(err)
     todos = things.upcoming(include_items=True)
     # Filter out tasks from Someday projects, then paginate
     todos = filter_someday_project_tasks(todos or [])
-    return _paginate_format(todos, format_todo, limit, offset, "No items found")
+    return _paginate_result(todos, format_todo, limit, offset, "No items found")
 
 @mcp.tool
-async def get_anytime(limit: int = None, offset: int = 0) -> str:
+async def get_anytime(limit: int = None, offset: int = 0) -> ToolResult:
     """Get todos from Anytime list
 
     Args:
@@ -204,14 +244,14 @@ async def get_anytime(limit: int = None, offset: int = 0) -> str:
     """
     err = _validate_pagination(limit, offset)
     if err:
-        return err
+        return _error_result(err)
     todos = things.anytime(include_items=True)
     # Filter out tasks from Someday projects, then paginate
     todos = filter_someday_project_tasks(todos or [])
-    return _paginate_format(todos, format_todo, limit, offset, "No items found")
+    return _paginate_result(todos, format_todo, limit, offset, "No items found")
 
 @mcp.tool
-async def get_someday(limit: int = None, offset: int = 0) -> str:
+async def get_someday(limit: int = None, offset: int = 0) -> ToolResult:
     """Get todos from Someday list, including tasks in Someday projects
 
     Args:
@@ -220,7 +260,7 @@ async def get_someday(limit: int = None, offset: int = 0) -> str:
     """
     err = _validate_pagination(limit, offset)
     if err:
-        return err
+        return _error_result(err)
     todos = things.someday(include_items=True)
     if todos is None:
         todos = []
@@ -233,7 +273,7 @@ async def get_someday(limit: int = None, offset: int = 0) -> str:
         for todo in anytime_todos:
             if _is_in_someday_project(todo, someday_project_ids, heading_to_project) and todo['uuid'] not in existing_uuids:
                 todos.append(todo)
-    return _paginate_format(todos, format_todo, limit, offset, "No items found")
+    return _paginate_result(todos, format_todo, limit, offset, "No items found")
 
 _LOGBOOK_PERIOD_RE = re.compile(r'(\d+)([dwmy])')
 _LOGBOOK_PERIOD_DAYS = {'d': 1, 'w': 7, 'm': 30, 'y': 365}
@@ -259,7 +299,7 @@ def _stop_datetime(todo):
 
 
 @mcp.tool
-async def get_logbook(period: str = "7d", limit: int = 50, offset: int = 0) -> str:
+async def get_logbook(period: str = "7d", limit: int = 50, offset: int = 0) -> ToolResult:
     """Get completed todos from Logbook, defaults to last 7 days
 
     Args:
@@ -269,14 +309,14 @@ async def get_logbook(period: str = "7d", limit: int = 50, offset: int = 0) -> s
     """
     err = _validate_pagination(limit, offset)
     if err:
-        return err
+        return _error_result(err)
     # things.last(period, status='completed') filters on creationDate, not
     # stopDate — so tasks created before the window but completed inside it
     # are invisible (which is most tasks in real use). Fetch all completed
     # tasks and filter on stop_date in Python.
     delta = _parse_logbook_period(period)
     if delta is None:
-        return (
+        return _error_result(
             f"Invalid period {period!r}. Use a number followed by d/w/m/y, "
             "e.g. '7d', '2w', '3m', '1y'."
         )
@@ -291,10 +331,10 @@ async def get_logbook(period: str = "7d", limit: int = 50, offset: int = 0) -> s
     in_window.sort(key=lambda pair: pair[0], reverse=True)
     todos = [t for _, t in in_window]
 
-    return _paginate_format(todos, format_todo, limit, offset, "No items found")
+    return _paginate_result(todos, format_todo, limit, offset, "No items found")
 
 @mcp.tool
-async def get_trash(limit: int = None, offset: int = 0) -> str:
+async def get_trash(limit: int = None, offset: int = 0) -> ToolResult:
     """Get trashed todos
 
     Args:
@@ -303,15 +343,18 @@ async def get_trash(limit: int = None, offset: int = 0) -> str:
     """
     err = _validate_pagination(limit, offset)
     if err:
-        return err
+        return _error_result(err)
     todos = things.trash(include_items=True)
-    return _paginate_format(todos, format_todo, limit, offset, "No items found")
+    return _paginate_result(todos, format_todo, limit, offset, "No items found")
 
 # Basic operations
 @mcp.tool
 async def get_todos(project_uuid: str = None, include_items: bool = True,
-                    limit: int = None, offset: int = 0) -> str:
+                    limit: int = None, offset: int = 0) -> ToolResult:
     """Get todos from Things, optionally filtered by project
+
+    Returns both human-readable text and structured JSON (the raw todo dicts
+    plus pagination metadata) so MCP clients can consume either form.
 
     Args:
         project_uuid: Optional UUID of a specific project to get todos from
@@ -321,17 +364,17 @@ async def get_todos(project_uuid: str = None, include_items: bool = True,
     """
     err = _validate_pagination(limit, offset)
     if err:
-        return err
+        return _error_result(err)
     if project_uuid:
         project = things.get(project_uuid)
         if not project or project.get('type') != 'project':
-            return f"Error: Invalid project UUID '{project_uuid}'"
+            return _error_result(f"Error: Invalid project UUID '{project_uuid}'")
 
     todos = things.todos(project=project_uuid, start=None, include_items=include_items)
-    return _paginate_format(todos, format_todo, limit, offset, "No todos found")
+    return _paginate_result(todos, format_todo, limit, offset, "No todos found")
 
 @mcp.tool
-async def get_projects(include_items: bool = False, limit: int = None, offset: int = 0) -> str:
+async def get_projects(include_items: bool = False, limit: int = None, offset: int = 0) -> ToolResult:
     """Get all projects from Things
 
     Args:
@@ -341,15 +384,15 @@ async def get_projects(include_items: bool = False, limit: int = None, offset: i
     """
     err = _validate_pagination(limit, offset)
     if err:
-        return err
+        return _error_result(err)
     projects = things.projects()
-    return _paginate_format(
+    return _paginate_result(
         projects, lambda p: format_project(p, include_items),
         limit, offset, "No projects found"
     )
 
 @mcp.tool
-async def get_areas(include_items: bool = False, limit: int = None, offset: int = 0) -> str:
+async def get_areas(include_items: bool = False, limit: int = None, offset: int = 0) -> ToolResult:
     """Get all areas from Things
 
     Args:
@@ -359,16 +402,16 @@ async def get_areas(include_items: bool = False, limit: int = None, offset: int 
     """
     err = _validate_pagination(limit, offset)
     if err:
-        return err
+        return _error_result(err)
     areas = things.areas()
-    return _paginate_format(
+    return _paginate_result(
         areas, lambda a: format_area(a, include_items),
         limit, offset, "No areas found"
     )
 
 # Tag operations
 @mcp.tool
-async def get_tags(include_items: bool = False, limit: int = None, offset: int = 0) -> str:
+async def get_tags(include_items: bool = False, limit: int = None, offset: int = 0) -> ToolResult:
     """Get all tags
 
     Args:
@@ -378,15 +421,15 @@ async def get_tags(include_items: bool = False, limit: int = None, offset: int =
     """
     err = _validate_pagination(limit, offset)
     if err:
-        return err
+        return _error_result(err)
     tags = things.tags()
-    return _paginate_format(
+    return _paginate_result(
         tags, lambda t: format_tag(t, include_items),
         limit, offset, "No tags found"
     )
 
 @mcp.tool
-async def get_tagged_items(tag: str, limit: int = None, offset: int = 0) -> str:
+async def get_tagged_items(tag: str, limit: int = None, offset: int = 0) -> ToolResult:
     """Get items with a specific tag
 
     Args:
@@ -396,9 +439,9 @@ async def get_tagged_items(tag: str, limit: int = None, offset: int = 0) -> str:
     """
     err = _validate_pagination(limit, offset)
     if err:
-        return err
+        return _error_result(err)
     todos = things.todos(tag=tag, include_items=True)
-    return _paginate_format(todos, format_todo, limit, offset, f"No items found with tag '{tag}'")
+    return _paginate_result(todos, format_todo, limit, offset, f"No items found with tag '{tag}'")
 
 @mcp.tool
 async def get_tag_usage(only_unused: bool = False) -> str:
@@ -435,7 +478,7 @@ async def get_tag_usage(only_unused: bool = False) -> str:
     return "\n".join(f"{name}: {open_c} open, {all_c} total" for name, open_c, all_c in rows)
 
 @mcp.tool
-async def get_headings(project_uuid: str = None, limit: int = None, offset: int = 0) -> str:
+async def get_headings(project_uuid: str = None, limit: int = None, offset: int = 0) -> ToolResult:
     """Get headings from Things
 
     Args:
@@ -445,20 +488,20 @@ async def get_headings(project_uuid: str = None, limit: int = None, offset: int 
     """
     err = _validate_pagination(limit, offset)
     if err:
-        return err
+        return _error_result(err)
     if project_uuid:
         project = things.get(project_uuid)
         if not project or project.get('type') != 'project':
-            return f"Error: Invalid project UUID '{project_uuid}'"
+            return _error_result(f"Error: Invalid project UUID '{project_uuid}'")
         headings = things.tasks(type='heading', project=project_uuid)
     else:
         headings = things.tasks(type='heading')
 
-    return _paginate_format(headings, format_heading, limit, offset, "No headings found")
+    return _paginate_result(headings, format_heading, limit, offset, "No headings found")
 
 # Search operations
 @mcp.tool
-async def search_todos(query: str, limit: int = None, offset: int = 0) -> str:
+async def search_todos(query: str, limit: int = None, offset: int = 0) -> ToolResult:
     """Search todos by title or notes
 
     Args:
@@ -468,9 +511,9 @@ async def search_todos(query: str, limit: int = None, offset: int = 0) -> str:
     """
     err = _validate_pagination(limit, offset)
     if err:
-        return err
+        return _error_result(err)
     todos = things.search(query, include_items=True)
-    return _paginate_format(todos, format_todo, limit, offset, f"No todos found matching '{query}'")
+    return _paginate_result(todos, format_todo, limit, offset, f"No todos found matching '{query}'")
 
 @mcp.tool
 async def search_advanced(
@@ -483,7 +526,7 @@ async def search_advanced(
     last: str = None,
     limit: int = None,
     offset: int = 0
-) -> str:
+) -> ToolResult:
     """Advanced todo search with multiple filters
 
     Args:
@@ -499,7 +542,7 @@ async def search_advanced(
     """
     err = _validate_pagination(limit, offset)
     if err:
-        return err
+        return _error_result(err)
     search_params = {}
     if status:
         search_params["status"] = status
@@ -520,11 +563,11 @@ async def search_advanced(
         todos = things.tasks(type=type, include_items=True, **search_params)
     else:
         todos = things.todos(include_items=True, **search_params)
-    return _paginate_format(todos, format_todo, limit, offset, "No matching todos found")
+    return _paginate_result(todos, format_todo, limit, offset, "No matching todos found")
 
 # Recent items
 @mcp.tool
-async def get_recent(period: str, limit: int = None, offset: int = 0) -> str:
+async def get_recent(period: str, limit: int = None, offset: int = 0) -> ToolResult:
     """Get recently created items
 
     Args:
@@ -534,9 +577,9 @@ async def get_recent(period: str, limit: int = None, offset: int = 0) -> str:
     """
     err = _validate_pagination(limit, offset)
     if err:
-        return err
+        return _error_result(err)
     todos = things.last(period, include_items=True)
-    return _paginate_format(todos, format_todo, limit, offset, f"No items found in the last {period}")
+    return _paginate_result(todos, format_todo, limit, offset, f"No items found in the last {period}")
 
 # Things URL Scheme tools
 @mcp.tool

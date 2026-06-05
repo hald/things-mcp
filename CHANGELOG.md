@@ -7,6 +7,7 @@
 - **Add Area Creation**: New `add_area` tool creates Areas in Things 3. Since the Things URL scheme has no `add-area` command, this uses AppleScript (`make new area with properties {name:...}`) and returns the new Area's UUID. Title strings are escaped to prevent AppleScript injection. ([#45][p45])
 - **Update Area**: New `update_area` tool renames an Area and/or sets its tags, also via AppleScript. Only provided fields are changed. There is intentionally no `delete_area` tool: deleting an Area in Things also deletes every project it contains, which is destructive and not recoverable.
 - **Response Pagination**: The list and search read tools now accept optional `limit` and `offset` parameters, so large Things lists can be inspected in chunks instead of returning everything at once (which is expensive in LLM/MCP workflows). Default behaviour is unchanged when no pagination is passed; otherwise a `Showing X-Y of Z items` header is added, and an out-of-range `offset` is reported distinctly from an empty result. ([#41][p41])
+- **Structured Responses**: The 16 list/search read tools now return both the human-readable text (unchanged) and machine-readable `structured_content` — the raw item dicts plus `count`/`total`/`offset`/`limit` metadata — so MCP clients can consume either form. Built on FastMCP 3.x's native `ToolResult`/structured-output support rather than a hand-rolled envelope (this supersedes the approach in [#40][p40]). The structured items are the same data the text renders (full item dicts, including nested checklist / sub-items), coerced to JSON-safe values (e.g. dates → ISO strings). Use `limit` to bound large lists — it shrinks both the text and structured channels together.
 
 ### Maintenance
 
@@ -14,6 +15,7 @@
 
 [p45]: https://github.com/hald/things-mcp/pull/45
 [p41]: https://github.com/hald/things-mcp/pull/41
+[p40]: https://github.com/hald/things-mcp/pull/40
 
 ## v0.8.0 - 2026-06-04
 

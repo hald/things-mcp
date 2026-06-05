@@ -1,6 +1,7 @@
 """Integration tests for MCP server functions with Someday filtering."""
 
 import pytest
+from tests._helpers import tool_text
 from unittest.mock import patch
 
 import things_mcp.server as things_server
@@ -24,7 +25,7 @@ class TestMCPServerFiltering:
             {'uuid': 'someday-proj', 'title': 'Someday Project'}
         ]
 
-        result = await things_server.get_anytime()
+        result = tool_text(await things_server.get_anytime())
 
         # Should only include task-2 and task-3
         assert 'task-1' not in result
@@ -45,7 +46,7 @@ class TestMCPServerFiltering:
             {'uuid': 'someday-proj'}
         ]
 
-        result = await things_server.get_today()
+        result = tool_text(await things_server.get_today())
 
         # Should only include task-5
         assert 'Today someday task' not in result
@@ -65,7 +66,7 @@ class TestMCPServerFiltering:
             {'uuid': 'someday-proj'}
         ]
 
-        result = await things_server.get_upcoming()
+        result = tool_text(await things_server.get_upcoming())
 
         # Should only include task-7
         assert 'Upcoming someday' not in result
@@ -77,7 +78,7 @@ class TestMCPServerFiltering:
         """Test that get_anytime handles empty results gracefully."""
         mock_anytime.return_value = []
 
-        result = await things_server.get_anytime()
+        result = tool_text(await things_server.get_anytime())
 
         assert result == "No items found"
 
@@ -95,7 +96,7 @@ class TestMCPServerFiltering:
             {'uuid': 'someday-proj'}
         ]
 
-        result = await things_server.get_anytime()
+        result = tool_text(await things_server.get_anytime())
 
         assert result == "No items found"
 
@@ -118,7 +119,7 @@ class TestMCPServerFiltering:
             {'uuid': 'someday-proj'}
         ]
 
-        result = await things_server.get_someday()
+        result = tool_text(await things_server.get_someday())
 
         assert 'Explicitly someday' in result
         assert 'In someday project' in result
@@ -143,7 +144,7 @@ class TestMCPServerFiltering:
             {'uuid': 'someday-proj'}
         ]
 
-        result = await things_server.get_someday()
+        result = tool_text(await things_server.get_someday())
 
         # task-1 should appear only once
         assert result.count('Already someday') == 1
