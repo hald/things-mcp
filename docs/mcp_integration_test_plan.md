@@ -52,7 +52,52 @@ Call each tool and confirm it responds without error:
 - [ ] `search_advanced` with `status: "incomplete"` → Should return results or "No matching todos found"
 - [ ] `get_recent` with `period: "1d"` → Should return results or "No items found"
 
-**Phase 1 Complete when:** All tools respond without errors.
+### 1.4 Structured Response & Pagination Verification
+
+The read tools return **two channels** in every result: the human-readable **text** and a machine-readable **`structured_content`** object shaped `{items, count, total, offset, limit}`. `items` holds the full item dicts (the same data the text renders); the other keys are the pagination envelope. These checks confirm both channels are present and consistent, and that `limit`/`offset` shrink them together.
+
+> **Client note:** these steps inspect the structured channel, which requires the MCP client to surface `structuredContent` to the model — Claude Desktop / Cowork do. If you are running in a client that only shows text, you can still verify everything except the raw envelope via the `Showing X-Y of Z items` text header.
+
+Pick a list tool that Phase 1.1 showed returns **several items** (`get_someday`, `get_anytime`, or `get_todos` are usually the largest). Use the same tool for all steps below; call it **`<LIST>`**. If every list has fewer than 4 items, note that the lists are too small to exercise multi-page paging and verify only steps 1.4.1, 1.4.4, and 1.4.6.
+
+**1.4.1 — Envelope present (unpaginated):**
+Call `<LIST>` with no pagination arguments.
+
+- [ ] Result includes a `structured_content` object with keys `items`, `count`, `total`, `offset`, `limit`
+- [ ] `count` equals the number of entries in `items`
+- [ ] With no pagination: `offset` == `0`, `limit` == `null`, and `total` == `count`
+- [ ] **Record `total`** (call it `N`) for the steps below
+
+**1.4.2 — `limit` shrinks both channels:**
+Call `<LIST>` with `limit: 3` (and `offset: 0`).
+
+- [ ] Structured: `count` ≤ 3, `limit` == `3`, `offset` == `0`, `total` == `N` (unchanged from 1.4.1)
+- [ ] Structured: `items` length == `count`
+- [ ] Text channel begins with header `Showing 1-3 of N items` (1-based)
+
+**1.4.3 — Second page is disjoint:**
+Call `<LIST>` with `limit: 3, offset: 3`.
+
+- [ ] Structured: `offset` == `3`, `total` == `N`
+- [ ] The `uuid`s in this page do **not** overlap with the `uuid`s from the 1.4.2 page (confirms paging advances)
+
+**1.4.4 — Out-of-range offset reported distinctly:**
+Call `<LIST>` with `offset: 100000`.
+
+- [ ] Structured: `count` == `0`, `items` is empty, `total` == `N`, `offset` == `100000`
+- [ ] Text channel reads `Showing 0 of N items (offset 100000 is past the end)` — distinct from an ordinary empty result
+
+**1.4.5 — Channels agree:**
+Using the 1.4.2 (`limit: 3`) result.
+
+- [ ] The first item's `title`/`uuid` in structured `items` matches the first item rendered in the text channel (the two channels carry the same data)
+
+**1.4.6 — Plain-string exception:**
+Call `get_tag_usage`.
+
+- [ ] Returns a plain-text report with **no** `structured_content` envelope — this is intentional (it is a compact report, not a list)
+
+**Phase 1 Complete when:** All tools respond without errors, and the structured/pagination checks in 1.4 pass (envelope present and consistent, `limit`/`offset` page both channels together, out-of-range offset is reported distinctly, and `get_tag_usage` remains a plain-string report).
 
 ---
 
@@ -87,7 +132,7 @@ Call `add_todo` with:
 title: "[MCP-TEST] Full Featured Todo"
 notes: "Testing all parameters"
 when: "someday"
-deadline: "2099-12-31"
+deadline: "2030-12-31"
 checklist_items: ["Checklist item 1", "Checklist item 2", "Checklist item 3"]
 ```
 
@@ -103,10 +148,12 @@ Call `add_todo` with:
 ```
 title: "[MCP-TEST] Reminder Todo"
 notes: "Testing reminder functionality"
-when: "2099-01-01@10:00"
+when: "2030-01-01@10:00"
 ```
 
 - [ ] Reminder todo created successfully
+
+> **Why 2030 and not a far-future sentinel:** Things stores start dates in a packed integer whose **year field maxes out at 2047**. A date in 2048 or later (e.g. the old `2099` value used here) still sorts as "future" — so the item *does* land in Upcoming — but things.py cannot decode the year, and the structured `start_date` comes back `null`. Keep the year ≤ 2047 (a near-future date like 2030 is ideal) so structured-field checks see a real date. The same ceiling applies to `deadline` (see Phase 2.3).
 
 ### 2.5 Create Test Area
 Call `add_area` with:
@@ -166,7 +213,8 @@ Call `get_upcoming`
 
 - [ ] Response does NOT contain `[MCP-TEST] Project Task 1`
 - [ ] Response does NOT contain `[MCP-TEST] Project Task 2`
-- [ ] Response DOES contain `[MCP-TEST] Reminder Todo` — this item has `when: "2099-01-01@10:00"`, which sets a future start date, placing it in the Upcoming view rather than Someday
+- [ ] Response DOES contain `[MCP-TEST] Reminder Todo` — this item has `when: "2030-01-01@10:00"`, which sets a future start date, placing it in the Upcoming view rather than Someday
+- [ ] **Structured-field check:** in the `get_upcoming` result's structured items, the Reminder Todo reports `start: "Someday"` with a populated `start_date` of `2030-01-01`. The `"Someday"` start value is correct — Things keeps future-scheduled items in the Someday start-bucket and surfaces them in Upcoming via their future `start_date` (this is exactly how `upcoming()` is defined). The `start_date` must be a real date, not `null` (a `null` here means the year exceeded the 2047 packed-date ceiling — see Phase 2.4)
 
 ### 3.5 Positive Presence in Today View
 Temporarily create a Today item to confirm `get_today` surfaces test items, then move it to Someday to maintain cleanup safety.
@@ -406,3 +454,4 @@ List all items with their UUIDs that were created and then canceled:
 - The Things URL scheme cannot create new tags - only existing tags can be assigned to items
 - `add_area` and `update_area` manage Areas via AppleScript (the URL scheme has no area commands), but there is no MCP tool to delete an Area — deleting one in Things also deletes its child projects, so it is intentionally omitted. Test Areas must be removed manually in the Things app
 - If a tag was used in testing, it will remain on the canceled items in the Logbook
+- **Packed-date year ceiling (≤ 2047):** Things stores `start_date` and `deadline` as a packed integer with an 11-bit year field (max 2047). Dates from 2048 onward still sort as "future" (so items appear in Upcoming) but cannot be decoded by things.py, so the structured `start_date`/`deadline` come back `null`. This is an upstream things.py / Things on-disk-format limit, not a things-mcp bug. Tests use near-future dates (≤ 2047) so structured-field assertions see real values.
