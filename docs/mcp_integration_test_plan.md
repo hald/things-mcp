@@ -18,6 +18,7 @@ A test plan for Claude Cowork or Claude Code to execute via MCP tools. Claude fo
 3. NEVER modify existing user data - only interact with items you create
 4. At the end, mark all created items as `canceled: true` for cleanup
 5. Track all created UUIDs for cleanup phase
+6. The `add_area` tool can create Areas, but there is no MCP tool to cancel or delete them — any test Area created must be removed manually (flagged in Phases 6–7)
 
 ---
 
@@ -40,6 +41,7 @@ Call each tool and confirm it responds without error:
 - [ ] `get_todos` → Should return todos or "No todos found"
 - [ ] `get_projects` → Should return projects or "No projects found"
 - [ ] `get_areas` → Should return areas or "No areas found"
+  - **Record the current list of area names** to confirm the test Area is newly created in Phase 3.7
 - [ ] `get_tags` → Should return tags or "No tags found"
   - **If tags exist:** Record one tag name to use in Phase 2.3 (for testing tag assignment)
   - **If no tags exist:** Skip tag-related tests (the API cannot create new tags)
@@ -106,7 +108,16 @@ when: "2099-01-01@10:00"
 
 - [ ] Reminder todo created successfully
 
-**Phase 2 Complete when:** All 4 items created (1 project with 2 tasks + 3 standalone todos = 6 total items).
+### 2.5 Create Test Area
+Call `add_area` with:
+```
+title: "[MCP-TEST] Integration Test Area"
+```
+
+- [ ] Area created successfully — **record the returned UUID** (the tool returns `Created new area: ... (id: <uuid>)`)
+- [ ] ⚠️ This Area cannot be canceled or deleted via the MCP tools (there is no `update_area`), so it will persist and must be removed manually in Phase 7
+
+**Phase 2 Complete when:** All items created — 1 project with 2 tasks + 3 standalone todos + 1 area (7 total items).
 
 ---
 
@@ -221,7 +232,13 @@ Call `get_anytime`
 
 - [ ] Response does NOT contain `[MCP-TEST] Anytime Presence`
 
-**Phase 3 Complete when:** All created items are found in Someday, project tasks show inherited annotation, project tasks are correctly excluded from Anytime/Today/Upcoming, the Reminder Todo appears in Upcoming, and positive-presence tests pass for Today and Anytime views.
+### 3.7 Verify Area Creation
+Call `get_areas`
+
+- [ ] Response contains `[MCP-TEST] Integration Test Area`
+- [ ] This area was NOT in the area list recorded in Phase 1.2 (confirms it was newly created, not pre-existing)
+
+**Phase 3 Complete when:** All created items are found in Someday, project tasks show inherited annotation, project tasks are correctly excluded from Anytime/Today/Upcoming, the Reminder Todo appears in Upcoming, positive-presence tests pass for Today and Anytime views, and the new Area appears in `get_areas`.
 
 ---
 
@@ -301,12 +318,21 @@ canceled: true
 
 - [ ] Test project marked as canceled
 
-### 6.3 Verify Cleanup
+### 6.3 Test Area — Manual Cleanup Required
+The MCP tools cannot cancel or delete Areas, so `[MCP-TEST] Integration Test Area` will remain in Things after this phase.
+
+- [ ] Record the Area UUID and name for manual deletion in Phase 7 (do NOT attempt an MCP cancel — there is no tool for it)
+
+### 6.4 Verify Cleanup
 Call `search_todos` with `query: "[MCP-TEST]"`
 
-- [ ] Should return "No todos found matching" (all items now canceled)
+- [ ] Should return "No todos found matching" (all todos/project now canceled)
 
-**Phase 6 Complete when:** All test items canceled and no longer appear in search.
+Call `get_areas`
+
+- [ ] `[MCP-TEST] Integration Test Area` still appears (expected — it requires manual deletion)
+
+**Phase 6 Complete when:** All test todos and the project are canceled and no longer appear in `search_todos`; the test Area is flagged for manual deletion.
 
 ---
 
@@ -332,6 +358,11 @@ Report:
    - Press Cmd+Delete to permanently delete
    - Empty Trash if desired
 
+3. **Required: delete the test Area manually** (the MCP tools cannot remove Areas):
+   - In the Things sidebar, find `[MCP-TEST] Integration Test Area`
+   - Right-click it → Delete (or select it and press Cmd+Delete)
+   - Confirm it no longer appears in `get_areas`
+
 ### Items Created During This Test Run
 List all items with their UUIDs that were created and then canceled:
 - Project: `[MCP-TEST] Integration Test Project - UPDATED`
@@ -343,6 +374,8 @@ List all items with their UUIDs that were created and then canceled:
   - `[MCP-TEST] Project Task 2`
   - `[MCP-TEST] Today Presence` (created in Phase 3.5, moved to Someday)
   - `[MCP-TEST] Anytime Presence` (created in Phase 3.6, moved to Someday)
+- Area (⚠️ requires manual deletion — not cancelable via MCP):
+  - `[MCP-TEST] Integration Test Area`
 
 ---
 
@@ -351,4 +384,5 @@ List all items with their UUIDs that were created and then canceled:
 - The Things URL scheme does not support permanent deletion, only marking items as canceled
 - Canceled items appear in the Logbook and can be manually deleted if desired
 - The Things URL scheme cannot create new tags - only existing tags can be assigned to items
+- `add_area` creates Areas via AppleScript (the URL scheme has no add-area command), but there is no MCP tool to update or delete an Area — test Areas must be removed manually in the Things app
 - If a tag was used in testing, it will remain on the canceled items in the Logbook
