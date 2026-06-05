@@ -4,7 +4,7 @@ from unittest.mock import patch, Mock
 import subprocess
 import urllib.parse
 from things_mcp.url_scheme import (
-    execute_url, construct_url, add_todo, add_project,
+    execute_url, construct_url, add_todo, add_project, add_area,
     update_todo, update_project, show, search, format_when_with_reminder,
     json_command,
 )
@@ -38,6 +38,48 @@ class TestExecuteUrl:
 
         assert mock_run.call_count == 2
         mock_run.assert_called_with(['open', '-g', 'things:///add?title=Test'], check=True)
+
+
+class TestAddArea:
+    """Test the add_area function (AppleScript-based since URL scheme has no add-area)."""
+
+    @patch('subprocess.run')
+    def test_add_area_basic(self, mock_run):
+        """Test basic Area creation returns the new UUID."""
+        mock_run.return_value = Mock(stdout="ABC123XYZ\n", returncode=0)
+
+        uuid = add_area("Backlog")
+
+        assert uuid == "ABC123XYZ"
+        mock_run.assert_called_once()
+        args, kwargs = mock_run.call_args
+        assert args[0][0] == 'osascript'
+        assert args[0][1] == '-e'
+        assert 'tell application "Things3"' in args[0][2]
+        assert 'name:"Backlog"' in args[0][2]
+        assert kwargs.get('check') is True
+        assert kwargs.get('capture_output') is True
+        assert kwargs.get('text') is True
+
+    @patch('subprocess.run')
+    def test_add_area_escapes_double_quotes(self, mock_run):
+        """Titles containing double quotes are escaped to prevent AppleScript injection."""
+        mock_run.return_value = Mock(stdout="UUID1\n", returncode=0)
+
+        add_area('Project "Alpha"')
+
+        script = mock_run.call_args[0][0][2]
+        assert 'name:"Project \\"Alpha\\""' in script
+
+    @patch('subprocess.run')
+    def test_add_area_escapes_backslashes(self, mock_run):
+        """Backslashes in titles are escaped before quote escaping."""
+        mock_run.return_value = Mock(stdout="UUID2\n", returncode=0)
+
+        add_area('foo\\bar')
+
+        script = mock_run.call_args[0][0][2]
+        assert 'name:"foo\\\\bar"' in script
 
 
 class TestConstructUrl:

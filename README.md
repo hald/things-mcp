@@ -129,6 +129,7 @@ After installation:
 ### Things URL Scheme Operations
 - `add-todo` - Create a new todo
 - `add-project` - Create a new project
+- `add-area` - Create a new Area (via AppleScript; Things URL scheme has no add-area command)
 - `update-todo` - Update an existing todo
 - `bulk-update-todos` - Apply the same update to many todos in a single operation
 - `update-project` - Update an existing project

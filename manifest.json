@@ -98,6 +98,10 @@
       "description": "Add a new project to Things"
     },
     {
+      "name": "add_area",
+      "description": "Create a new Area in Things 3 (via AppleScript)"
+    },
+    {
       "name": "update_todo",
       "description": "Update an existing todo"
     },
