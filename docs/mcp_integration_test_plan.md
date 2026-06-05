@@ -115,7 +115,7 @@ title: "[MCP-TEST] Integration Test Area"
 ```
 
 - [ ] Area created successfully — **record the returned UUID** (the tool returns `Created new area: ... (id: <uuid>)`)
-- [ ] ⚠️ This Area cannot be canceled or deleted via the MCP tools (there is no `update_area`), so it will persist and must be removed manually in Phase 7
+- [ ] ⚠️ This Area cannot be canceled or deleted via the MCP tools (there is no delete tool for Areas by design — deleting an Area in Things also deletes its child projects), so it will persist and must be removed manually in Phase 7
 
 **Phase 2 Complete when:** All items created — 1 project with 2 tasks + 3 standalone todos + 1 area (7 total items).
 
@@ -274,7 +274,27 @@ Call `search_todos` with `query: "Project - UPDATED"`
 
 - [ ] Returns the updated project
 
-**Phase 4 Complete when:** Both update operations verified.
+### 4.5 Update the Area
+Using the Area UUID from Phase 2.5, call `update_area` with:
+```
+id: "<UUID of Integration Test Area>"
+title: "[MCP-TEST] Integration Test Area - UPDATED"
+```
+
+**If an existing tag was found in Phase 1.2**, also include:
+```
+tags: ["<existing-tag-name>"]
+```
+
+- [ ] Update succeeds
+
+### 4.6 Verify Area Update
+Call `get_areas`
+
+- [ ] Response contains `[MCP-TEST] Integration Test Area - UPDATED`
+- [ ] Response does NOT contain the old name `[MCP-TEST] Integration Test Area` (without "- UPDATED")
+
+**Phase 4 Complete when:** Todo, project, and area update operations are all verified.
 
 ---
 
@@ -319,7 +339,7 @@ canceled: true
 - [ ] Test project marked as canceled
 
 ### 6.3 Test Area — Manual Cleanup Required
-The MCP tools cannot cancel or delete Areas, so `[MCP-TEST] Integration Test Area` will remain in Things after this phase.
+The MCP tools cannot cancel or delete Areas, so `[MCP-TEST] Integration Test Area - UPDATED` (renamed in Phase 4.5) will remain in Things after this phase.
 
 - [ ] Record the Area UUID and name for manual deletion in Phase 7 (do NOT attempt an MCP cancel — there is no tool for it)
 
@@ -330,7 +350,7 @@ Call `search_todos` with `query: "[MCP-TEST]"`
 
 Call `get_areas`
 
-- [ ] `[MCP-TEST] Integration Test Area` still appears (expected — it requires manual deletion)
+- [ ] `[MCP-TEST] Integration Test Area - UPDATED` still appears (expected — it requires manual deletion)
 
 **Phase 6 Complete when:** All test todos and the project are canceled and no longer appear in `search_todos`; the test Area is flagged for manual deletion.
 
@@ -359,7 +379,7 @@ Report:
    - Empty Trash if desired
 
 3. **Required: delete the test Area manually** (the MCP tools cannot remove Areas):
-   - In the Things sidebar, find `[MCP-TEST] Integration Test Area`
+   - In the Things sidebar, find `[MCP-TEST] Integration Test Area - UPDATED`
    - Right-click it → Delete (or select it and press Cmd+Delete)
    - Confirm it no longer appears in `get_areas`
 
@@ -375,7 +395,7 @@ List all items with their UUIDs that were created and then canceled:
   - `[MCP-TEST] Today Presence` (created in Phase 3.5, moved to Someday)
   - `[MCP-TEST] Anytime Presence` (created in Phase 3.6, moved to Someday)
 - Area (⚠️ requires manual deletion — not cancelable via MCP):
-  - `[MCP-TEST] Integration Test Area`
+  - `[MCP-TEST] Integration Test Area - UPDATED`
 
 ---
 
@@ -384,5 +404,5 @@ List all items with their UUIDs that were created and then canceled:
 - The Things URL scheme does not support permanent deletion, only marking items as canceled
 - Canceled items appear in the Logbook and can be manually deleted if desired
 - The Things URL scheme cannot create new tags - only existing tags can be assigned to items
-- `add_area` creates Areas via AppleScript (the URL scheme has no add-area command), but there is no MCP tool to update or delete an Area — test Areas must be removed manually in the Things app
+- `add_area` and `update_area` manage Areas via AppleScript (the URL scheme has no area commands), but there is no MCP tool to delete an Area — deleting one in Things also deletes its child projects, so it is intentionally omitted. Test Areas must be removed manually in the Things app
 - If a tag was used in testing, it will remain on the canceled items in the Logbook
