@@ -15,7 +15,9 @@
     "entry_point": "server/stub.py",
     "mcp_config": {
       "command": "uvx",
-      "args": ["things-mcp"]
+      "args": [
+        "things-mcp"
+      ]
     }
   },
   "tools": [
@@ -64,6 +66,10 @@
       "description": "Get all tags"
     },
     {
+      "name": "get_tag_usage",
+      "description": "Report how many items use each tag, sorted by usage; flag unused tags"
+    },
+    {
       "name": "get_tagged_items",
       "description": "Get items with a specific tag"
     },
@@ -96,6 +102,10 @@
       "description": "Update an existing todo"
     },
     {
+      "name": "bulk_update_todos",
+      "description": "Apply the same update to many todos in a single operation"
+    },
+    {
       "name": "update_project",
       "description": "Update an existing project"
     },
@@ -108,10 +118,19 @@
       "description": "Search for items in Things"
     }
   ],
-  "keywords": ["things", "todo", "task", "project", "productivity", "macos"],
+  "keywords": [
+    "things",
+    "todo",
+    "task",
+    "project",
+    "productivity",
+    "macos"
+  ],
   "license": "MIT",
   "compatibility": {
     "claude_desktop": ">=0.10.0",
-    "platforms": ["darwin"]
+    "platforms": [
+      "darwin"
+    ]
   }
 }
