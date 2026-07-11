@@ -171,6 +171,29 @@ def _completed(uuid, title, stop_date):
     }
 
 
+def _canceled(uuid, title, stop_date):
+    return {
+        'uuid': uuid,
+        'title': title,
+        'type': 'to-do',
+        'status': 'canceled',
+        'stop_date': stop_date,
+    }
+
+
+def _mock_logbook_tasks(mocker, completed=(), canceled=()):
+    """Wire up things.tasks to answer per-status queries like the real API.
+
+    get_logbook queries status='completed' and status='canceled' separately,
+    so a plain return_value would hand the same list to both queries.
+    """
+    by_status = {'completed': list(completed), 'canceled': list(canceled)}
+    return mocker.patch(
+        'things.tasks',
+        side_effect=lambda status=None, **kw: list(by_status.get(status, [])),
+    )
+
+
 def test_parse_logbook_period_accepts_dwmy():
     assert _parse_logbook_period('7d') == timedelta(days=7)
     assert _parse_logbook_period('2w') == timedelta(days=14)
@@ -190,7 +213,7 @@ async def test_get_logbook_includes_tasks_completed_in_window_even_if_created_ea
     """Regression for #46: tasks created long ago but completed recently must appear."""
     today = datetime.now().date().isoformat()
     long_ago_completed_recently = _completed('a', 'Old task done today', today)
-    mocker.patch('things.tasks', return_value=[long_ago_completed_recently])
+    _mock_logbook_tasks(mocker, completed=[long_ago_completed_recently])
 
     result = tool_text(await get_logbook(period='7d'))
 
@@ -201,7 +224,7 @@ async def test_get_logbook_includes_tasks_completed_in_window_even_if_created_ea
 async def test_get_logbook_excludes_tasks_completed_before_window(mocker):
     long_ago = (datetime.now() - timedelta(days=60)).date().isoformat()
     today = datetime.now().date().isoformat()
-    mocker.patch('things.tasks', return_value=[
+    _mock_logbook_tasks(mocker, completed=[
         _completed('a', 'Within window', today),
         _completed('b', 'Outside window', long_ago),
     ])
@@ -217,7 +240,7 @@ async def test_get_logbook_sorts_newest_completion_first(mocker):
     today = datetime.now().date().isoformat()
     yesterday = (datetime.now() - timedelta(days=1)).date().isoformat()
     two_days_ago = (datetime.now() - timedelta(days=2)).date().isoformat()
-    mocker.patch('things.tasks', return_value=[
+    _mock_logbook_tasks(mocker, completed=[
         _completed('a', 'Two days ago', two_days_ago),
         _completed('b', 'Today', today),
         _completed('c', 'Yesterday', yesterday),
@@ -231,7 +254,7 @@ async def test_get_logbook_sorts_newest_completion_first(mocker):
 @pytest.mark.asyncio
 async def test_get_logbook_respects_limit(mocker):
     today = datetime.now().date().isoformat()
-    mocker.patch('things.tasks', return_value=[
+    _mock_logbook_tasks(mocker, completed=[
         _completed(f'u{i}', f'Task {i}', today) for i in range(10)
     ])
 
@@ -247,6 +270,64 @@ async def test_get_logbook_invalid_period(mocker):
     result = tool_text(await get_logbook(period='lol'))
 
     assert 'Invalid period' in result
+
+
+@pytest.mark.asyncio
+async def test_get_logbook_queries_completed_and_canceled(mocker):
+    """The Logbook holds both statuses, so both must be fetched."""
+    mock_tasks = _mock_logbook_tasks(mocker)
+
+    await get_logbook(period='7d')
+
+    statuses = [call.kwargs.get('status') for call in mock_tasks.call_args_list]
+    assert statuses == ['completed', 'canceled']
+    assert all(call.kwargs.get('include_items') for call in mock_tasks.call_args_list)
+
+
+@pytest.mark.asyncio
+async def test_get_logbook_includes_canceled_items(mocker):
+    """Canceled items appear in the Things Logbook and must appear here too."""
+    today = datetime.now().date().isoformat()
+    _mock_logbook_tasks(mocker, canceled=[_canceled('a', 'Dropped task', today)])
+
+    result = tool_text(await get_logbook(period='7d'))
+
+    assert 'Dropped task' in result
+    assert 'Status: canceled' in result
+
+
+@pytest.mark.asyncio
+async def test_get_logbook_merges_statuses_sorted_by_stop_date(mocker):
+    today = datetime.now().date().isoformat()
+    yesterday = (datetime.now() - timedelta(days=1)).date().isoformat()
+    two_days_ago = (datetime.now() - timedelta(days=2)).date().isoformat()
+    _mock_logbook_tasks(
+        mocker,
+        completed=[
+            _completed('a', 'Done two days ago', two_days_ago),
+            _completed('b', 'Done today', today),
+        ],
+        canceled=[_canceled('c', 'Dropped yesterday', yesterday)],
+    )
+
+    result = tool_text(await get_logbook(period='7d'))
+
+    assert result.index('Done today') < result.index('Dropped yesterday') < result.index('Done two days ago')
+
+
+@pytest.mark.asyncio
+async def test_get_logbook_period_filter_applies_to_canceled_items(mocker):
+    long_ago = (datetime.now() - timedelta(days=60)).date().isoformat()
+    today = datetime.now().date().isoformat()
+    _mock_logbook_tasks(mocker, canceled=[
+        _canceled('a', 'Dropped recently', today),
+        _canceled('b', 'Dropped long ago', long_ago),
+    ])
+
+    result = tool_text(await get_logbook(period='7d'))
+
+    assert 'Dropped recently' in result
+    assert 'Dropped long ago' not in result
 
 
 # --- get_tag_usage (#14) ------------------------------------------------------
@@ -452,6 +533,10 @@ async def test_pagination_applies_after_someday_filtering(mocker):
 @pytest.mark.asyncio
 async def test_get_logbook_supports_offset(mocker):
     today = datetime.now().date().isoformat()
-    mocker.patch('things.tasks', return_value=[_completed(f'u{i}', f'L{i}', today) for i in range(5)])
+    _mock_logbook_tasks(
+        mocker,
+        completed=[_completed(f'u{i}', f'L{i}', today) for i in range(4)],
+        canceled=[_canceled('u4', 'L4', today)],
+    )
     result = tool_text(await get_logbook(period='7d', limit=2, offset=2))
     assert 'Showing 3-4 of 5 items' in result
