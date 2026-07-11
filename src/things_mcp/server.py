@@ -109,6 +109,50 @@ def filter_someday_project_tasks(todos):
     return [todo for todo in todos if not _is_in_someday_project(todo, someday_project_ids, heading_to_project)]
 
 
+# Helper function to drop top-level duplicates of nested project children
+def dedupe_nested_project_children(todos):
+    """Drop top-level entries whose parent project is also in the result.
+
+    things.today() and things.anytime() return matching projects and those
+    projects' child tasks as separate top-level rows. With include_items=True
+    the children are already nested in the project row's 'items', so each
+    child would be rendered, counted, and paginated twice. Keep the nested
+    copy and skip the top-level duplicate. Tasks under a heading carry a
+    'heading' reference instead of 'project', so headings are resolved to
+    their parent project the same way the Someday filtering does.
+
+    Args:
+        todos: List of todo dictionaries
+
+    Returns:
+        List with top-level duplicates of nested project children removed
+    """
+    project_ids = {t['uuid'] for t in todos if t.get('type') == 'project'}
+    if not project_ids:
+        return todos
+
+    # Resolve heading -> project only when some entry needs it.
+    heading_to_project = {}
+    if any(not t.get('project') and t.get('heading') for t in todos):
+        for proj_id in project_ids:
+            try:
+                headings = things.tasks(type='heading', project=proj_id)
+            except Exception:
+                continue
+            for h in (headings or []):
+                heading_to_project[h['uuid']] = proj_id
+
+    deduped = []
+    for todo in todos:
+        parent = todo.get('project')
+        if not parent and todo.get('heading'):
+            parent = heading_to_project.get(todo['heading'])
+        if parent in project_ids:
+            continue
+        deduped.append(todo)
+    return deduped
+
+
 # Pagination helpers
 def _validate_pagination(limit, offset):
     """Return an error string if limit/offset are invalid, else None."""
@@ -214,8 +258,10 @@ async def get_today(limit: int = None, offset: int = 0) -> ToolResult:
         todos = things.today(include_items=True)
     except TypeError:
         todos = _today_fallback()
-    # Filter out tasks from Someday projects, then paginate
+    # Filter out tasks from Someday projects, drop top-level duplicates of
+    # nested project children, then paginate
     todos = filter_someday_project_tasks(todos or [])
+    todos = dedupe_nested_project_children(todos)
     return _paginate_result(todos, format_todo, limit, offset, "No items found")
 
 @mcp.tool
@@ -246,8 +292,10 @@ async def get_anytime(limit: int = None, offset: int = 0) -> ToolResult:
     if err:
         return _error_result(err)
     todos = things.anytime(include_items=True)
-    # Filter out tasks from Someday projects, then paginate
+    # Filter out tasks from Someday projects, drop top-level duplicates of
+    # nested project children, then paginate
     todos = filter_someday_project_tasks(todos or [])
+    todos = dedupe_nested_project_children(todos)
     return _paginate_result(todos, format_todo, limit, offset, "No items found")
 
 @mcp.tool
