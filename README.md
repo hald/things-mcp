@@ -1,6 +1,6 @@
 # Things MCP Server
 
-This [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) server lets you use Claude Desktop to interact with your task management data in [Things 3](https://culturedcode.com/things) from Cultured Code. You can ask Claude to create tasks, analyze projects, help manage priorities, and more.
+This [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) server lets you use ChatGPT, Codex, Claude Desktop, and other MCP clients to interact with your task management data in [Things 3](https://culturedcode.com/things) from Cultured Code. You can ask your assistant to create tasks, analyze projects, help manage priorities, and more.
 
 This server leverages the [Things.py](https://github.com/thingsapi/things.py) library and the [Things URL Scheme](https://culturedcode.com/things/help/url-scheme/). 
 
@@ -29,7 +29,7 @@ If you find this project helpful, consider supporting its development:
 ### Prerequisites
 - macOS (Things 3 is Mac-only)
 - Things 3 app with "Enable Things URLs" turned on (Settings → General)
-- A MCP client, such as Claude Desktop or Claude Code
+- An MCP client, such as the ChatGPT desktop app, Codex, Claude Desktop, or Claude Code
 - [uv](https://docs.astral.sh/uv/) Python package manager: `brew install uv`
 
 ### Install via uvx (Any MCP Client)
@@ -79,10 +79,40 @@ To make it available globally (across all projects), add `-s user`:
 claude mcp add-json -s user things '{"command":"uvx","args":["things-mcp"]}'
 ```
 
+### ChatGPT Desktop and Codex
+
+The ChatGPT desktop app, Codex CLI, and Codex IDE extension share the same local MCP configuration. The quickest way to add Things MCP is with the Codex CLI:
+
+```bash
+codex mcp add things -- uvx things-mcp
+```
+
+Confirm that the server is configured:
+
+```bash
+codex mcp list
+```
+
+You can also configure it in the ChatGPT desktop app:
+
+1. Open **Settings → MCP servers**
+2. Select **Add server**
+3. Enter `things` as the name, choose **STDIO**, and enter the result of `which uvx` as the command to launch (should look similar to /opt/homebrew/bin/uvx)
+4. Enter `things-mcp` under arguments
+5. Save the server and select **Restart**
+
+> [!IMPORTANT]
+> When using the ChatGPT desktop client, you must use **Work** mode to access Things MCP. Select **ChatGPT** from the top-left menu, then choose **Work** from the toggle at the top of the page. Regular **Chat** mode does not use locally configured MCP tools. You can also select the separate **Codex** view, which shares the same MCP configuration.
+
+In ChatGPT Work or Codex, type `/mcp` to check that the Things server is connected, then try asking, "What's in my Things inbox?"
+
+This local setup does not work in ChatGPT on the web because the web client does not read local Codex MCP configuration. See [OpenAI's MCP documentation](https://developers.openai.com/codex/mcp/) and [ChatGPT Work and Codex](https://help.openai.com/en/articles/20001275-chatgpt-work-and-codex) for current availability and interface details.
+
 ### Verify it's working
 
 After installation:
 - If using Claude Desktop, you should see "Things MCP" in the "Search and tools" list
+- If using ChatGPT Work or Codex, type `/mcp` and confirm that the Things server is connected
 - Try asking: "What's in my Things inbox?"
 
 ### Sample Usage with Claude Desktop
