@@ -1,5 +1,7 @@
 # Things MCP Server
 
+[![MCP Toplist](https://mcptoplist.com/badge/glama%2Fhald%2Fthings-mcp.svg)](https://mcptoplist.com/server/glama%2Fhald%2Fthings-mcp)
+
 This [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) server lets you use Claude Desktop to interact with your task management data in [Things 3](https://culturedcode.com/things) from Cultured Code. You can ask Claude to create tasks, analyze projects, help manage priorities, and more.
 
 This server leverages the [Things.py](https://github.com/thingsapi/things.py) library and the [Things URL Scheme](https://culturedcode.com/things/help/url-scheme/). 
