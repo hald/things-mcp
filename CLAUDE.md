@@ -55,6 +55,7 @@ This is a Model Context Protocol (MCP) server that bridges Claude Desktop with t
    - Search and tag operations
    - Things URL scheme integration
    - Implements Someday project filtering to match Things UI behavior
+   - **Repeating-to-do visibility**: `get_today`, `get_upcoming` and `search_todos` merge in projected occurrences of repeating to-dos via `_merge_recurring` (see `recurrence.py`). Each accepts `include_recurring` (default True); `RECURRING_OCCURRENCES` / `RECURRING_HORIZON_DAYS` are env-configurable.
    - **Pagination + structured responses**: the 16 list/search read tools accept optional `limit`/`offset` and return a FastMCP `ToolResult` carrying both a human-readable text channel and a `structured_content` envelope `{items, count, total, offset, limit}`. Two helpers drive this: `_paginate_format` (text) and `_paginate_result` (wraps text + JSON-safe structured data); `_error_result` wraps early-return/validation errors. `get_tag_usage` intentionally stays a plain string.
 
 2. **src/things_mcp/url_scheme.py** - Things URL scheme + AppleScript implementation
@@ -67,7 +68,14 @@ This is a Model Context Protocol (MCP) server that bridges Claude Desktop with t
    - Converts Things database objects to human-readable text
    - Handles nested data (projects within areas, checklist items, etc.)
 
-4. **tests/** - Unit test suite (174 tests)
+4. **src/things_mcp/recurrence.py** - Repeating (recurring) to-do projection
+   - Things stores a repeating to-do as one template row with an XML-plist repeat rule in `rt1_recurrenceRule`, and materializes at most one instance ahead of today
+   - things.py hard-codes `rt1_recurrenceRule IS NULL` into every task query (`things/database.py`), so templates are invisible to its whole API — this module reads the same SQLite file directly, **read-only**, as there is no API to go through
+   - Decodes the rule (`tp` repeat type, `fu` unit as legacy NSCalendarUnit values, `fa` interval, `of` constraints, `ia` phase anchor, `ts` lead time) and projects occurrences onto a date window; the module docstring documents every key
+   - Deliberately does NOT reimplement Things' recurrence engine: `tp=1` ("after completion") rules have no derivable schedule, so only Things' own precomputed next date is surfaced
+   - All failures are swallowed and the caller's original list returned, so projection can only ever add results
+
+5. **tests/** - Unit test suite (209 tests)
    - **conftest.py** - Pytest fixtures and mock data
    - **_helpers.py** - `tool_text()` reads the text channel from a `ToolResult` (or a plain-string result) so text assertions work across both return shapes
    - **test_url_scheme.py** - Tests for URL construction
@@ -75,6 +83,7 @@ This is a Model Context Protocol (MCP) server that bridges Claude Desktop with t
    - **test_things_server.py** - Tests for server tools (incl. pagination + structured-content shape)
    - **test_things_server_headings.py** - Tests for heading functionality
    - **test_someday_filtering.py** - Tests for Someday project filtering
+   - **test_recurring_visibility.py** - Tests for repeating-to-do rule decoding, occurrence projection, status filtering and tool integration
    - **test_mcp_server_filtering.py** - Integration tests for MCP server filtering
 
 ## Key Implementation Details
@@ -86,6 +95,7 @@ This is a Model Context Protocol (MCP) server that bridges Claude Desktop with t
 - Error handling for invalid UUIDs and missing parameters; pagination args validated by `_validate_pagination`
 - Supports filtering and including nested items via parameters
 - **Someday Project Filtering**: Tasks from Someday projects are filtered out of Today, Upcoming, and Anytime views to match the Things UI behavior and reduce clutter
+- **Repeating to-dos**: projected into `get_today` / `get_upcoming` / `search_todos` from the stored repeat rule, tagged `is_recurring` + `template_id`; a `conftest.py` autouse fixture keeps the suite off the real Things database
 - Unit tests mock all external dependencies (Things.py, shell commands)
 - Pytest configuration in pyproject.toml with async support
 - Supports both stdio (default) and HTTP transport modes

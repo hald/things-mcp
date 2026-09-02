@@ -117,6 +117,18 @@ def format_todo(todo: dict) -> str:
     if todo.get('stop_date'):
         todo_text += f"\nCompleted: {todo['stop_date']}"
 
+    # Projected occurrence of a repeating to-do (things-mcp #67). These are
+    # derived from the repeat rule, not real rows, so label them clearly.
+    if todo.get('is_recurring'):
+        interval = todo.get('recurrence_interval') or 1
+        unit = todo.get('recurrence_unit') or 'period'
+        every = f"every {unit}" if interval == 1 else f"every {interval} {unit}s"
+        if todo.get('repeats_after_completion'):
+            every += ", after completion"
+        todo_text += f"\nRepeating: {every} (projected occurrence)"
+        if todo.get('template_id'):
+            todo_text += f"\nTemplate UUID: {todo['template_id']}"
+
     todo_text = _append_timestamps(todo_text, todo)
 
     if todo.get('notes'):

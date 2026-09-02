@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Bug fixes
+
+- **Repeating To-dos Are Visible Again**: `get_today`, `get_upcoming` and `search_todos` now surface repeating to-dos. Things 3 stores a repeating to-do as one template row carrying a repeat rule and materializes at most a single instance ahead of today; on top of that, `things.py` hard-codes `rt1_recurrenceRule IS NULL` into every task query, so template rows are invisible to its entire API. Repeating to-dos therefore never appeared in Upcoming and could not be found by search. These tools now decode the repeat rule directly and project each series' next occurrences (default 8, `THINGS_MCP_RECURRING_OCCURRENCES`) across the requested window (default 365 days, `THINGS_MCP_RECURRING_HORIZON_DAYS`). Projected items carry `is_recurring: true` and a `template_id`, and use a synthetic `<template-uuid>:<date>` UUID so they are never mistaken for real rows. Dates Things has already materialized are skipped, and canceled, completed, trashed and paused templates — plus templates inside a canceled or trashed project — produce nothing. To-dos set to repeat *after completion* have no derivable schedule, so only the single next date Things itself computed is shown rather than an invented series. Opt out per call with `include_recurring=false`. ([#67][i67])
+
+[i67]: https://github.com/hald/things-mcp/issues/67
+
 ## v0.8.1 - 2026-06-05
 
 ### Features

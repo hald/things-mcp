@@ -102,8 +102,8 @@ After installation:
 
 ### List Views
 - `get-inbox` - Get todos from Inbox
-- `get-today` - Get todos due today
-- `get-upcoming` - Get upcoming todos
+- `get-today` - Get todos due today (includes repeating to-dos scheduled for today)
+- `get-upcoming` - Get upcoming todos (includes projected occurrences of repeating to-dos)
 - `get-anytime` - Get todos from Anytime list
 - `get-someday` - Get todos from Someday list, including tasks in Someday projects
 - `get-logbook` - Get completed todos
@@ -120,7 +120,7 @@ After installation:
 - `get-tag-usage` - Report how many items use each tag, sorted by usage; flag unused tags for cleanup
 
 ### Search Operations
-- `search-todos` - Simple search by title/notes
+- `search-todos` - Simple search by title/notes (also matches repeating to-dos)
 - `search-advanced` - Advanced search with multiple filters
 
 ### Time-based Operations
@@ -147,6 +147,24 @@ The list/search read tools (`get-inbox`, `get-today`, `get-upcoming`, `get-anyti
 When neither is set, output is unchanged. When set, a `Showing X-Y of Z items` header is prepended so you know how much more there is. An `offset` past the end is reported distinctly from an empty result.
 
 These same read tools also return **structured content** alongside the human-readable text: MCP clients receive the raw item dicts plus `count`/`total`/`offset`/`limit` under `structured_content`, so data can be consumed programmatically without parsing the formatted text.
+
+### Repeating to-dos (get-today, get-upcoming, search-todos)
+Things 3 stores a repeating to-do as a single template with a repeat rule attached, and materializes at most **one** real instance ahead of today. The underlying `things.py` library also filters template rows out of every query. The result was that repeating to-dos were largely invisible: they never appeared in `get-upcoming`, and `search-todos` could not find them at all.
+
+These three tools now read the repeat rule directly and project the upcoming occurrences of each repeating to-do into their results. Projected items are marked so they are never confused with real to-dos:
+- `is_recurring: true`
+- `template_id` - UUID of the repeating to-do they were derived from
+- `recurrence_unit` / `recurrence_interval` - e.g. `week` / `2` for "every 2 weeks"
+- `uuid` - a synthetic `<template-uuid>:<date>`, **not** a real Things UUID
+
+Dates Things has already materialized are skipped, so nothing is double-counted. Occurrences of a to-do set to repeat *after completion* cannot be predicted from the rule (each date depends on when the previous one was ticked off), so only the single next date Things itself has computed is shown.
+
+Parameters and configuration:
+- `include_recurring` (optional, default `true`) - set to `false` for the previous behaviour
+- `THINGS_MCP_RECURRING_OCCURRENCES` (env, default `8`) - max occurrences projected per repeating to-do
+- `THINGS_MCP_RECURRING_HORIZON_DAYS` (env, default `365`) - how far ahead `get-upcoming` / `search-todos` project
+
+> This is a read-only visibility feature. Creating or editing repeat rules is not supported.
 
 ### get-todos
 - `project_uuid` (optional) - Filter todos by project

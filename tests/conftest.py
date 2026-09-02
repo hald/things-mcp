@@ -106,3 +106,19 @@ def mock_things_projects():
             {'title': 'Project 2', 'uuid': 'project-2'}
         ]
         yield mock
+
+@pytest.fixture(autouse=True)
+def no_real_recurrence_templates():
+    """Keep tests off the developer's real Things database.
+
+    ``get_today`` / ``get_upcoming`` / ``search_todos`` project occurrences of
+    repeating to-dos by reading the Things SQLite file directly (things.py
+    filters template rows out, so there is no API to mock). Without this, a
+    server-level test would pick up whatever repeats happen to exist on the
+    machine running the suite.
+
+    Tests that exercise the projection supply their own templates explicitly
+    (see tests/test_recurring_visibility.py) or override this fixture.
+    """
+    with patch('things_mcp.recurrence.fetch_templates', return_value=[]):
+        yield

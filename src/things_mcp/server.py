@@ -9,6 +9,7 @@ from fastmcp import FastMCP
 from fastmcp.tools.tool import ToolResult
 from .formatters import format_todo, format_project, format_area, format_tag, format_heading
 from . import url_scheme
+from . import recurrence
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -18,6 +19,16 @@ logger = logging.getLogger(__name__)
 TRANSPORT = os.environ.get("THINGS_MCP_TRANSPORT", "stdio")  # "stdio" or "http"
 HTTP_HOST = os.environ.get("THINGS_MCP_HOST", "127.0.0.1")
 HTTP_PORT = int(os.environ.get("THINGS_MCP_PORT", "8000"))
+
+# Repeating-to-do projection (see recurrence.py and things-mcp #67).
+# Things materializes at most one instance of a repeating to-do ahead of now,
+# and things.py hides the template rows entirely, so the rest of each series is
+# projected from the stored repeat rule.
+RECURRING_OCCURRENCES = int(
+    os.environ.get("THINGS_MCP_RECURRING_OCCURRENCES", recurrence.DEFAULT_MAX_OCCURRENCES)
+)
+# How far ahead get_upcoming / search_todos project occurrences.
+RECURRING_HORIZON_DAYS = int(os.environ.get("THINGS_MCP_RECURRING_HORIZON_DAYS", "365"))
 
 # Initialize FastMCP server
 mcp = FastMCP("Things")
@@ -178,6 +189,37 @@ def _paginate_result(items, formatter, limit, offset, empty_msg, separator="\n\n
     return ToolResult(content=text, structured_content=structured)
 
 
+def _merge_recurring(todos, window_start, window_end, include_recurring, predicate=None):
+    """Merge projected repeating-to-do occurrences into a result list.
+
+    Returns ``todos`` untouched when disabled or when anything goes wrong, so
+    this can only ever add results to an existing view (things-mcp #67).
+
+    Args:
+        todos: Real todos already returned by things.py.
+        window_start: First date (inclusive) to project occurrences for.
+        window_end: Last date (inclusive) to project occurrences for.
+        include_recurring: When False, skip projection entirely.
+        predicate: Optional filter applied to each template before projecting.
+    """
+    if not include_recurring:
+        return todos
+    try:
+        templates = recurrence.fetch_templates()
+        if predicate is not None:
+            templates = [t for t in templates if predicate(t)]
+        return recurrence.merge_recurring(
+            todos,
+            window_start,
+            window_end,
+            max_occurrences=RECURRING_OCCURRENCES,
+            templates=templates,
+        )
+    except Exception:
+        logger.debug("Could not merge recurring occurrences", exc_info=True)
+        return todos
+
+
 def _error_result(msg):
     """ToolResult for an error / early-return path: human-readable text plus a
     structured {"error": msg} so structured-output clients see it too."""
@@ -200,12 +242,16 @@ async def get_inbox(limit: int = None, offset: int = 0) -> ToolResult:
     return _paginate_result(todos, format_todo, limit, offset, "No items found")
 
 @mcp.tool
-async def get_today(limit: int = None, offset: int = 0) -> ToolResult:
+async def get_today(limit: int = None, offset: int = 0, include_recurring: bool = True) -> ToolResult:
     """Get todos due today
+
+    Includes occurrences of repeating to-dos that fall today but which Things
+    has not materialized as real rows yet (things-mcp #67).
 
     Args:
         limit: Maximum number of items to return (default: all)
         offset: Number of items to skip from the start (default: 0)
+        include_recurring: Include projected repeating-to-do occurrences (default: True)
     """
     err = _validate_pagination(limit, offset)
     if err:
@@ -216,15 +262,23 @@ async def get_today(limit: int = None, offset: int = 0) -> ToolResult:
         todos = _today_fallback()
     # Filter out tasks from Someday projects, then paginate
     todos = filter_someday_project_tasks(todos or [])
+    today = datetime.now().date()
+    todos = _merge_recurring(todos, today, today, include_recurring)
     return _paginate_result(todos, format_todo, limit, offset, "No items found")
 
 @mcp.tool
-async def get_upcoming(limit: int = None, offset: int = 0) -> ToolResult:
+async def get_upcoming(limit: int = None, offset: int = 0, include_recurring: bool = True) -> ToolResult:
     """Get upcoming todos
+
+    Things only materializes one instance of a repeating to-do ahead of today,
+    so future occurrences are projected from each repeat rule and merged in
+    (things-mcp #67). Projected items are marked ``is_recurring`` and carry a
+    ``template_id`` pointing at the repeating to-do they came from.
 
     Args:
         limit: Maximum number of items to return (default: all)
         offset: Number of items to skip from the start (default: 0)
+        include_recurring: Include projected repeating-to-do occurrences (default: True)
     """
     err = _validate_pagination(limit, offset)
     if err:
@@ -232,6 +286,10 @@ async def get_upcoming(limit: int = None, offset: int = 0) -> ToolResult:
     todos = things.upcoming(include_items=True)
     # Filter out tasks from Someday projects, then paginate
     todos = filter_someday_project_tasks(todos or [])
+    tomorrow = datetime.now().date() + timedelta(days=1)
+    todos = _merge_recurring(
+        todos, tomorrow, tomorrow + timedelta(days=RECURRING_HORIZON_DAYS), include_recurring
+    )
     return _paginate_result(todos, format_todo, limit, offset, "No items found")
 
 @mcp.tool
@@ -501,18 +559,37 @@ async def get_headings(project_uuid: str = None, limit: int = None, offset: int 
 
 # Search operations
 @mcp.tool
-async def search_todos(query: str, limit: int = None, offset: int = 0) -> ToolResult:
+async def search_todos(query: str, limit: int = None, offset: int = 0, include_recurring: bool = True) -> ToolResult:
     """Search todos by title or notes
+
+    Repeating to-dos are invisible to the underlying search, so matching
+    templates also contribute their upcoming projected occurrences
+    (things-mcp #67).
 
     Args:
         query: Search term to look for in todo titles and notes
         limit: Maximum number of items to return (default: all)
         offset: Number of items to skip from the start (default: 0)
+        include_recurring: Include projected repeating-to-do occurrences (default: True)
     """
     err = _validate_pagination(limit, offset)
     if err:
         return _error_result(err)
     todos = things.search(query, include_items=True)
+    needle = (query or "").lower()
+
+    def _matches(template):
+        haystack = f"{template.get('title') or ''}\n{template.get('notes') or ''}"
+        return needle in haystack.lower()
+
+    today = datetime.now().date()
+    todos = _merge_recurring(
+        todos or [],
+        today,
+        today + timedelta(days=RECURRING_HORIZON_DAYS),
+        include_recurring,
+        predicate=_matches,
+    )
     return _paginate_result(todos, format_todo, limit, offset, f"No todos found matching '{query}'")
 
 @mcp.tool
