@@ -738,7 +738,8 @@ async def update_todo(
         list_id: The ID of a project or area to move the to-do into (takes precedence over list)
         heading: The heading title to move the to-do under
         heading_id: The heading ID to move the to-do under (takes precedence over heading)
-        checklist_items: Replace the entire checklist with these items
+        checklist_items: Replace the entire checklist with these items. Pass an
+            empty list to clear the checklist.
         prepend_checklist_items: Add these items to the start of the existing checklist
         append_checklist_items: Add these items to the end of the existing checklist
     """
