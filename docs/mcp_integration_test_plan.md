@@ -214,8 +214,8 @@ Call `get_upcoming`
 - [ ] Response does NOT contain `[MCP-TEST] Project Task 1`
 - [ ] Response does NOT contain `[MCP-TEST] Project Task 2`
 - [ ] Response DOES contain `[MCP-TEST] Reminder Todo` — this item has `when: "2030-01-01@10:00"`, which sets a future start date, placing it in the Upcoming view rather than Someday
-- [ ] **Reminder-time check:** the same structured item carries `reminder_time: "10:00"` (added in things.py 1.0.1; the field is omitted entirely on items with no reminder, so its absence elsewhere is expected)
-- [ ] **Structured-field check:** in the `get_upcoming` result's structured items, the Reminder Todo reports `start: "Someday"` with a populated `start_date` of `2030-01-01`. The `"Someday"` start value is correct — Things keeps future-scheduled items in the Someday start-bucket and surfaces them in Upcoming via their future `start_date` (this is exactly how `upcoming()` is defined). The `start_date` must be a real date, not `null` (a `null` here means the year exceeded the 2047 packed-date ceiling — see Phase 2.4)
+- [ ] **Reminder-time check:** the Reminder Todo's structured item carries `reminder_time: "10:00"` (added in things.py 1.0.1; the field is omitted entirely on items with no reminder, so its absence elsewhere is expected), and the text channel shows `Reminder: 10:00` under `Start Date: 2030-01-01`
+- [ ] **Structured-field check:** in the `get_upcoming` result's structured items, the Reminder Todo reports `start: "Someday"` with a populated `start_date` of `2030-01-01`. The `"Someday"` start value is correct — Things keeps future-scheduled items in the Someday start-bucket and surfaces them in Upcoming via their future `start_date` (this is exactly how `upcoming()` is defined). The `start_date` must be a real date, not `null` (a `null` here means the year exceeded the 2047 packed-date ceiling — see Phase 2.4). In the text channel the same fields appear as `List: Someday` and `Start Date: 2030-01-01`
 
 ### 3.5 Positive Presence in Today View
 Temporarily create a Today item to confirm `get_today` surfaces test items, then move it to Someday to maintain cleanup safety.
@@ -348,6 +348,7 @@ Call `get_areas`
 
 - [ ] Response contains `[MCP-TEST] Integration Test Area - UPDATED`
 - [ ] Response does NOT contain the old name `[MCP-TEST] Integration Test Area` (without "- UPDATED")
+- [ ] **If a tag was set in 4.5:** the area shows that tag — `"tags": [...]` in the structured item, and a `Tags: <tag>` line in the text channel
 
 ### 4.7 Checklist Preserved When Omitted
 Using the Full Featured Todo UUID from Phase 3, call `update_todo` with:

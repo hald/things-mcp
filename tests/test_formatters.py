@@ -315,6 +315,27 @@ class TestFormatTodo:
         
         assert "Tags: urgent, work, important" in result
     
+    def test_format_todo_with_reminder_time(self):
+        """Test formatting todo with a reminder time (things.py >= 1.0.1)."""
+        todo = {
+            'title': 'Reminder Todo',
+            'uuid': 'reminder-uuid',
+            'type': 'to-do',
+            'start_date': '2030-01-01',
+            'reminder_time': '10:00'
+        }
+        result = format_todo(todo)
+
+        assert "Start Date: 2030-01-01" in result
+        assert "Reminder: 10:00" in result
+
+    def test_format_todo_without_reminder_time(self):
+        """No Reminder line when the todo has no reminder."""
+        todo = {'title': 'Plain', 'uuid': 'plain-uuid', 'type': 'to-do'}
+        result = format_todo(todo)
+
+        assert "Reminder:" not in result
+
     def test_format_todo_with_checklist(self):
         """Test formatting todo with checklist items."""
         todo = {
@@ -521,6 +542,20 @@ class TestFormatProject:
         assert "Notes: Project description" in result
     
     @patch('things.tasks')
+    def test_format_project_with_tags(self, mock_tasks):
+        """Test formatting project with tags."""
+        mock_tasks.return_value = []
+
+        project = {
+            'title': 'Tagged Project',
+            'uuid': 'tagged-project-uuid',
+            'tags': ['Work', 'Errand']
+        }
+        result = format_project(project)
+
+        assert "Tags: Work, Errand" in result
+
+    @patch('things.tasks')
     def test_format_project_with_headings(self, mock_tasks):
         """Test formatting project with headings."""
         mock_tasks.return_value = [
@@ -669,6 +704,17 @@ class TestFormatArea:
         
         assert "Notes: Area description" in result
     
+    def test_format_area_with_tags(self):
+        """Test formatting area with tags."""
+        area = {
+            'title': 'Tagged Area',
+            'uuid': 'tagged-area-uuid',
+            'tags': ['Errand']
+        }
+        result = format_area(area)
+
+        assert "Tags: Errand" in result
+
     @patch('things.projects')
     @patch('things.todos')
     def test_format_area_with_items(self, mock_todos, mock_projects):
