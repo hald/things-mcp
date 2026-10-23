@@ -300,7 +300,7 @@ def _stop_datetime(todo):
 
 @mcp.tool
 async def get_logbook(period: str = "7d", limit: int = 50, offset: int = 0) -> ToolResult:
-    """Get completed todos from Logbook, defaults to last 7 days
+    """Get completed and canceled todos from Logbook, defaults to last 7 days
 
     Args:
         period: Time period to look back (e.g., '3d', '1w', '2m', '1y'). Defaults to '7d'
@@ -312,8 +312,9 @@ async def get_logbook(period: str = "7d", limit: int = 50, offset: int = 0) -> T
         return _error_result(err)
     # things.last(period, status='completed') filters on creationDate, not
     # stopDate — so tasks created before the window but completed inside it
-    # are invisible (which is most tasks in real use). Fetch all completed
-    # tasks and filter on stop_date in Python.
+    # are invisible (which is most tasks in real use). Fetch all logged
+    # tasks and filter on stop_date in Python. The Logbook holds both
+    # completed and canceled tasks, so query both statuses.
     delta = _parse_logbook_period(period)
     if delta is None:
         return _error_result(
@@ -322,9 +323,11 @@ async def get_logbook(period: str = "7d", limit: int = 50, offset: int = 0) -> T
         )
 
     cutoff = datetime.now() - delta
-    all_completed = things.tasks(status='completed', include_items=True) or []
+    logged = []
+    for status in ('completed', 'canceled'):
+        logged.extend(things.tasks(status=status, include_items=True) or [])
     in_window = []
-    for todo in all_completed:
+    for todo in logged:
         stopped = _stop_datetime(todo)
         if stopped is not None and stopped >= cutoff:
             in_window.append((stopped, todo))
