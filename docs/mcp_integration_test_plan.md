@@ -214,6 +214,7 @@ Call `get_upcoming`
 - [ ] Response does NOT contain `[MCP-TEST] Project Task 1`
 - [ ] Response does NOT contain `[MCP-TEST] Project Task 2`
 - [ ] Response DOES contain `[MCP-TEST] Reminder Todo` — this item has `when: "2030-01-01@10:00"`, which sets a future start date, placing it in the Upcoming view rather than Someday
+- [ ] **Reminder-time check:** the same structured item carries `reminder_time: "10:00"` (added in things.py 1.0.1; the field is omitted entirely on items with no reminder, so its absence elsewhere is expected)
 - [ ] **Structured-field check:** in the `get_upcoming` result's structured items, the Reminder Todo reports `start: "Someday"` with a populated `start_date` of `2030-01-01`. The `"Someday"` start value is correct — Things keeps future-scheduled items in the Someday start-bucket and surfaces them in Upcoming via their future `start_date` (this is exactly how `upcoming()` is defined). The `start_date` must be a real date, not `null` (a `null` here means the year exceeded the 2047 packed-date ceiling — see Phase 2.4)
 
 ### 3.5 Positive Presence in Today View
@@ -342,7 +343,31 @@ Call `get_areas`
 - [ ] Response contains `[MCP-TEST] Integration Test Area - UPDATED`
 - [ ] Response does NOT contain the old name `[MCP-TEST] Integration Test Area` (without "- UPDATED")
 
-**Phase 4 Complete when:** Todo, project, and area update operations are all verified.
+### 4.7 Checklist Preserved When Omitted
+Using the Full Featured Todo UUID from Phase 3, call `update_todo` with:
+```
+id: "<UUID of Full Featured Todo>"
+notes: "Testing all parameters - checklist should survive"
+```
+
+Then call `search_todos` with `query: "Full Featured Todo"`.
+
+- [ ] Update succeeds
+- [ ] The structured item's `checklist` still holds all 3 items (`Checklist item 1`–`3`) — omitting `checklist_items` must leave the checklist alone
+
+### 4.8 Clear a Checklist With an Empty List
+Call `update_todo` with:
+```
+id: "<UUID of Full Featured Todo>"
+checklist_items: []
+```
+
+Then call `search_todos` with `query: "Full Featured Todo"`.
+
+- [ ] Update succeeds
+- [ ] The structured item has **no** checklist items left (`checklist` is empty, `false`, or absent). Before the fix, `[]` was silently dropped and the 3 items stayed
+
+**Phase 4 Complete when:** Todo, project, and area update operations are all verified, and the checklist is preserved when omitted and cleared by an empty list.
 
 ---
 
@@ -400,7 +425,40 @@ Call `get_areas`
 
 - [ ] `[MCP-TEST] Integration Test Area - UPDATED` still appears (expected — it requires manual deletion)
 
-**Phase 6 Complete when:** All test todos and the project are canceled and no longer appear in `search_todos`; the test Area is flagged for manual deletion.
+### 6.5 Logbook Includes Canceled Items
+Call `get_logbook` with `period: "1d"`.
+
+- [ ] Response contains the canceled `[MCP-TEST]` todos (e.g. `[MCP-TEST] Basic Todo - UPDATED`)
+- [ ] Their structured items report `status: "canceled"` — before this release `get_logbook` only returned completed items, so canceled test items were missing
+
+### 6.6 Project-Scoped Logbook and Search
+Using the test project UUID, call `get_logbook` with:
+```
+period: "1d"
+project_uuid: "<project UUID>"
+```
+
+- [ ] Response contains `[MCP-TEST] Project Task 1` and `[MCP-TEST] Project Task 2`
+- [ ] Response contains **no** items outside the test project (e.g. no `[MCP-TEST] Basic Todo - UPDATED`, no non-test items)
+
+Call `search_advanced` with:
+```
+status: "canceled"
+project: "<project UUID>"
+```
+
+- [ ] Returns only `[MCP-TEST] Project Task 1` and `[MCP-TEST] Project Task 2`
+
+Call `search_advanced` with:
+```
+status: "canceled"
+stop_date: ">=<today, YYYY-MM-DD>"
+```
+
+- [ ] Results include the canceled `[MCP-TEST]` todos
+- [ ] Every result's `stop_date` is today or later
+
+**Phase 6 Complete when:** All test todos and the project are canceled and no longer appear in `search_todos`; the canceled items appear in `get_logbook`, project-scoped logbook/search return only the project's tasks; the test Area is flagged for manual deletion.
 
 ---
 
@@ -420,6 +478,7 @@ Report:
    - Go to Logbook
    - Search for `[MCP-TEST]`
    - Confirm all test items appear with "Canceled" status
+   - Confirm `[MCP-TEST] Full Featured Todo` shows no checklist (cleared in Phase 4.8)
 
 2. **Optional permanent cleanup:**
    - In Logbook, select all `[MCP-TEST]` items
