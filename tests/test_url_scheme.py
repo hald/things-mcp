@@ -329,6 +329,24 @@ class TestUpdateTodo:
         assert "checklist-items=Step%201%0AStep%202" in url
 
     @patch('things.token')
+    def test_update_todo_empty_checklist_clears(self, mock_token):
+        """An empty list must emit 'checklist-items=' so Things clears the checklist.
+
+        checklist-items is a replacement, so sending it empty is the only way to
+        remove every item. Dropping the parameter instead silently no-ops.
+        """
+        mock_token.return_value = "auth-token"
+        url = update_todo(id="todo-123", checklist_items=[])
+        assert "checklist-items=" in url
+
+    @patch('things.token')
+    def test_update_todo_omitted_checklist_untouched(self, mock_token):
+        """Omitting checklist_items must leave the existing checklist alone."""
+        mock_token.return_value = "auth-token"
+        url = update_todo(id="todo-123", title="Renamed")
+        assert "checklist-items" not in url
+
+    @patch('things.token')
     def test_update_todo_prepends_checklist(self, mock_token):
         mock_token.return_value = "auth-token"
         url = update_todo(id="todo-123", prepend_checklist_items=["New first"])
