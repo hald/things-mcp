@@ -299,13 +299,16 @@ def _stop_datetime(todo):
 
 
 @mcp.tool
-async def get_logbook(period: str = "7d", limit: int = 50, offset: int = 0) -> ToolResult:
-    """Get completed and canceled todos from Logbook, defaults to last 7 days
+async def get_logbook(period: str = "7d", limit: int = 50, offset: int = 0,
+                      project_uuid: str = None) -> ToolResult:
+    """Get completed and canceled todos from Logbook, defaults to last 7 days, optionally filtered by project
 
     Args:
         period: Time period to look back (e.g., '3d', '1w', '2m', '1y'). Defaults to '7d'
         limit: Maximum number of entries to return. Defaults to 50
         offset: Number of entries to skip from the start (default: 0)
+        project_uuid: Optional UUID of a project to filter by; includes items
+            under the project's headings
     """
     err = _validate_pagination(limit, offset)
     if err:
@@ -325,7 +328,7 @@ async def get_logbook(period: str = "7d", limit: int = 50, offset: int = 0) -> T
     cutoff = datetime.now() - delta
     logged = []
     for status in ('completed', 'canceled'):
-        logged.extend(things.tasks(status=status, include_items=True) or [])
+        logged.extend(things.tasks(status=status, include_items=True, project=project_uuid) or [])
     in_window = []
     for todo in logged:
         stopped = _stop_datetime(todo)
@@ -522,9 +525,11 @@ async def search_todos(query: str, limit: int = None, offset: int = 0) -> ToolRe
 async def search_advanced(
     status: str = None,
     start_date: str = None,
+    stop_date: str = None,
     deadline: str = None,
     tag: str = None,
     area: str = None,
+    project: str = None,
     type: str = None,
     last: str = None,
     limit: int = None,
@@ -535,9 +540,12 @@ async def search_advanced(
     Args:
         status: Filter by todo status (incomplete, completed, canceled)
         start_date: Filter by start date (YYYY-MM-DD)
+        stop_date: Filter by completion/cancellation date (YYYY-MM-DD with optional
+            operator, e.g. '>=2024-01-01', or 'past'/'future')
         deadline: Filter by deadline (YYYY-MM-DD)
         tag: Filter by tag
         area: Filter by area UUID
+        project: Filter by project UUID (includes items under the project's headings)
         type: Filter by item type (to-do, project, heading)
         last: Filter by creation date (e.g., '3d' for last 3 days, '1w' for last week, '1y' for last year)
         limit: Maximum number of items to return (default: all)
@@ -551,12 +559,16 @@ async def search_advanced(
         search_params["status"] = status
     if start_date:
         search_params["start_date"] = start_date
+    if stop_date:
+        search_params["stop_date"] = stop_date
     if deadline:
         search_params["deadline"] = deadline
     if tag:
         search_params["tag"] = tag
     if area:
         search_params["area"] = area
+    if project:
+        search_params["project"] = project
     if last:
         search_params["last"] = last
 

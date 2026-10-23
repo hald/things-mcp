@@ -1,5 +1,6 @@
 import json
 import urllib.parse
+from unittest.mock import call
 from datetime import datetime, timedelta
 import pytest
 from tests._helpers import tool_text
@@ -540,3 +541,80 @@ async def test_get_logbook_supports_offset(mocker):
     )
     result = tool_text(await get_logbook(period='7d', limit=2, offset=2))
     assert 'Showing 3-4 of 5 items' in result
+
+
+# --- project-scoped logbook / search_advanced filters (#58) -------------------
+
+@pytest.mark.asyncio
+async def test_get_logbook_passes_project_uuid_to_things_tasks(mocker):
+    """project_uuid narrows the completed-task scan at the things-py layer."""
+    today = datetime.now().date().isoformat()
+    mock_tasks = mocker.patch('things.tasks', return_value=[
+        _completed('a', 'Kitchen reno task', today),
+    ])
+
+    result = tool_text(await get_logbook(period='7d', project_uuid='project-uuid'))
+
+    assert mock_tasks.call_args_list == [
+        call(status='completed', include_items=True, project='project-uuid'),
+        call(status='canceled', include_items=True, project='project-uuid'),
+    ]
+    assert 'Kitchen reno task' in result
+
+
+@pytest.mark.asyncio
+async def test_get_logbook_without_project_uuid_scans_all_projects(mocker):
+    """Default (project_uuid=None) preserves the unfiltered full-logbook scan."""
+    today = datetime.now().date().isoformat()
+    mock_tasks = mocker.patch('things.tasks', return_value=[
+        _completed('a', 'Any task', today),
+    ])
+
+    result = tool_text(await get_logbook(period='7d'))
+
+    assert mock_tasks.call_args_list == [
+        call(status='completed', include_items=True, project=None),
+        call(status='canceled', include_items=True, project=None),
+    ]
+    assert 'Any task' in result
+
+
+@pytest.mark.asyncio
+async def test_search_advanced_forwards_project(mocker, mock_todo):
+    mock_things_todos = mocker.patch('things.todos', return_value=[mock_todo])
+
+    result = tool_text(await search_advanced(status='completed', project='project-uuid'))
+
+    mock_things_todos.assert_called_once_with(
+        include_items=True, status='completed', project='project-uuid'
+    )
+    assert 'Test Todo' in result
+
+
+@pytest.mark.asyncio
+async def test_search_advanced_forwards_stop_date(mocker, mock_todo):
+    mock_things_todos = mocker.patch('things.todos', return_value=[mock_todo])
+
+    result = tool_text(await search_advanced(status='completed', stop_date='>2024-01-01'))
+
+    mock_things_todos.assert_called_once_with(
+        include_items=True, status='completed', stop_date='>2024-01-01'
+    )
+    assert 'Test Todo' in result
+
+
+@pytest.mark.asyncio
+async def test_search_advanced_forwards_project_and_stop_date_with_type(mocker, mock_todo):
+    """project/stop_date reach things.tasks() on the type= code path too."""
+    mock_things_tasks = mocker.patch('things.tasks', return_value=[mock_todo])
+
+    result = tool_text(await search_advanced(
+        type='to-do', status='completed',
+        project='project-uuid', stop_date='2024-01-15',
+    ))
+
+    mock_things_tasks.assert_called_once_with(
+        type='to-do', include_items=True, status='completed',
+        project='project-uuid', stop_date='2024-01-15'
+    )
+    assert 'Test Todo' in result
