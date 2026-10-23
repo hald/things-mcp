@@ -1,5 +1,32 @@
 # Changelog
 
+## v0.8.2 - 2026-10-23
+
+### Bug fixes
+
+- **Clear a Checklist**: `update_todo(checklist_items=[])` now clears the checklist. Previously the empty list was silently dropped and the existing items stayed. Omitting `checklist_items` still leaves the checklist alone. ([#73][p73], thanks @seanoliver)
+- **Logbook Includes Canceled Items**: `get_logbook` now returns canceled items alongside completed ones, matching the Things Logbook. Each item's `status` tells them apart. ([#60][i60] / [#64][p64], thanks @ggfevans)
+- **`get_recent` Window**: `period: "1d"` now means the last 24 hours. things.py compares local creation times against UTC "now", so the window was skewed by the machine's UTC offset (in UTC-7, `1d` covered about 17 hours). Month periods like `2m`, which the tool advertised but things.py rejected, now work. The description now says it returns open items only.
+
+### Features
+
+- **Project-Scoped Completed Items**: `get_logbook` gains `project_uuid`, and `search_advanced` gains `project` and `stop_date`, so a project's completed history no longer means pulling the whole Logbook. Items under the project's headings are included. ([#58][i58] / [#66][p66], thanks @ggfevans)
+- **Reminder Times and Tags in Text Output**: To-dos with a reminder now show `Reminder: HH:MM`, and projects and areas show `Tags: ...`. Clients that only show the text channel could previously set these but not read them back.
+- **ChatGPT and Codex Setup**: README instructions for the ChatGPT desktop app and Codex. ([#68][p68], thanks @benslen)
+
+### Maintenance
+
+- **things.py 1.0.1**: The lock file moves from things.py 0.0.15 to 1.0.1, which `uvx` / `.mcpb` installs were already resolving. Adds the `reminder_time` field to to-dos that have a reminder.
+- **Test Fix**: `test_construct_url_encodes_slash_in_values` now mocks `things.token()`, so the suite passes on machines without Things installed.
+- **Integration Test Plan**: New checks for the changes above, plus a note on which checks Claude Desktop (structured output only) and Cowork (text only) can see.
+
+[p73]: https://github.com/hald/things-mcp/pull/73
+[i60]: https://github.com/hald/things-mcp/issues/60
+[p64]: https://github.com/hald/things-mcp/pull/64
+[i58]: https://github.com/hald/things-mcp/issues/58
+[p66]: https://github.com/hald/things-mcp/pull/66
+[p68]: https://github.com/hald/things-mcp/pull/68
+
 ## v0.8.1 - 2026-06-05
 
 ### Features
