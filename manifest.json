@@ -43,7 +43,7 @@
     },
     {
       "name": "get_logbook",
-      "description": "Get completed todos from Logbook"
+      "description": "Get completed and canceled todos from Logbook, optionally filtered by project"
     },
     {
       "name": "get_trash",
@@ -87,7 +87,7 @@
     },
     {
       "name": "get_recent",
-      "description": "Get recently created items"
+      "description": "Get open items created within a rolling time window"
     },
     {
       "name": "add_todo",
