@@ -6,7 +6,7 @@ import pytest
 from tests._helpers import tool_text
 from things_mcp.server import (
     get_todos, get_today, get_inbox, search_todos, search_advanced,
-    get_logbook, _parse_logbook_period, _today_fallback, get_tag_usage,
+    get_logbook, _parse_logbook_period, _today_fallback, get_tag_usage, get_recent,
     bulk_update_todos,
 )
 
@@ -618,3 +618,58 @@ async def test_search_advanced_forwards_project_and_stop_date_with_type(mocker, 
         project='project-uuid', stop_date='2024-01-15'
     )
     assert 'Test Todo' in result
+
+
+def _created(uuid, title, created):
+    return {
+        'uuid': uuid,
+        'title': title,
+        'type': 'to-do',
+        'status': 'incomplete',
+        'created': created,
+    }
+
+
+@pytest.mark.asyncio
+async def test_get_recent_uses_rolling_window_in_local_time(mocker):
+    """'1d' means the last 24 hours, regardless of the machine's UTC offset.
+
+    things.last() compares local creation times against UTC 'now', so the
+    server over-fetches by a day and filters on 'created' itself.
+    """
+    now = datetime.now()
+    fmt = '%Y-%m-%d %H:%M:%S'
+    mock_last = mocker.patch('things.last', return_value=[
+        _created('a', 'Created 1h ago', (now - timedelta(hours=1)).strftime(fmt)),
+        _created('b', 'Created 18h ago', (now - timedelta(hours=18)).strftime(fmt)),
+        _created('c', 'Created 30h ago', (now - timedelta(hours=30)).strftime(fmt)),
+    ])
+
+    result = await get_recent(period='1d')
+    text = tool_text(result)
+
+    mock_last.assert_called_once_with('2d', include_items=True)
+    assert 'Created 1h ago' in text
+    assert 'Created 18h ago' in text
+    assert 'Created 30h ago' not in text
+    assert result.structured_content['total'] == 2
+
+
+@pytest.mark.asyncio
+async def test_get_recent_accepts_months(mocker):
+    """'2m' is advertised in the docstring; things.last() itself rejects it."""
+    mock_last = mocker.patch('things.last', return_value=[])
+
+    await get_recent(period='2m')
+
+    mock_last.assert_called_once_with('61d', include_items=True)
+
+
+@pytest.mark.asyncio
+async def test_get_recent_rejects_invalid_period(mocker):
+    mock_last = mocker.patch('things.last')
+
+    result = tool_text(await get_recent(period='soon'))
+
+    assert 'Invalid period' in result
+    mock_last.assert_not_called()

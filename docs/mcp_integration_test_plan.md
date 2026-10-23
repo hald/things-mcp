@@ -56,7 +56,7 @@ Call each tool and confirm it responds without error:
 
 The read tools return **two channels** in every result: the human-readable **text** and a machine-readable **`structured_content`** object shaped `{items, count, total, offset, limit}`. `items` holds the full item dicts (the same data the text renders); the other keys are the pagination envelope. These checks confirm both channels are present and consistent, and that `limit`/`offset` shrink them together.
 
-> **Client note:** these steps inspect the structured channel, which requires the MCP client to surface `structuredContent` to the model — Claude Desktop / Cowork do. If you are running in a client that only shows text, you can still verify everything except the raw envelope via the `Showing X-Y of Z items` text header.
+> **Client note:** clients differ in which channel they show the model. Claude Desktop surfaces only `structured_content` (so the `Showing X-Y of Z items` header and text-only annotations like "(inherited from project)" can't be checked there), while Cowork surfaces only the text (so the envelope, `reminder_time`, structured `start`/`start_date`, and area tags can't be checked there). For full coverage, run the plan in both, or note which checks were skipped.
 
 Pick a list tool that Phase 1.1 showed returns **several items** (`get_someday`, `get_anytime`, or `get_todos` are usually the largest). Use the same tool for all steps below; call it **`<LIST>`**. If every list has fewer than 4 items, note that the lists are too small to exercise multi-page paging and verify only steps 1.4.1, 1.4.4, and 1.4.6.
 
@@ -286,6 +286,12 @@ Call `get_areas`
 
 - [ ] Response contains `[MCP-TEST] Integration Test Area`
 - [ ] This area was NOT in the area list recorded in Phase 1.2 (confirms it was newly created, not pre-existing)
+
+### 3.8 Recently Created Items
+Call `get_recent` with `period: "1d"`.
+
+- [ ] Response contains the open `[MCP-TEST]` todos created in Phase 2 (`get_recent` returns incomplete items only)
+- [ ] **Rolling-window check:** if any non-test item in your Things was created more than ~12 hours ago but less than 24 hours ago, it also appears. `"1d"` means the last 24 hours, not "since midnight". Before this release the window was skewed by the machine's UTC offset, so west of UTC it silently dropped items from earlier in the day
 
 **Phase 3 Complete when:** All created items are found in Someday, project tasks show inherited annotation, project tasks are correctly excluded from Anytime/Today/Upcoming, the Reminder Todo appears in Upcoming, positive-presence tests pass for Today and Anytime views, and the new Area appears in `get_areas`.
 
