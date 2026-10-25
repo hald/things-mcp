@@ -1,10 +1,8 @@
 # Things MCP Server
 
-This [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) server lets you use Claude Desktop to interact with your task management data in [Things 3](https://culturedcode.com/things) from Cultured Code. You can ask Claude to create tasks, analyze projects, help manage priorities, and more.
+This [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) server lets you use ChatGPT, Codex, Claude Desktop, and other MCP clients to interact with your task management data in [Things 3](https://culturedcode.com/things) from Cultured Code. You can ask your assistant to create tasks, analyze projects, help manage priorities, and more.
 
 This server leverages the [Things.py](https://github.com/thingsapi/things.py) library and the [Things URL Scheme](https://culturedcode.com/things/help/url-scheme/). 
-
-<a href="https://glama.ai/mcp/servers/t9cgixg2ah"><img width="380" height="200" src="https://glama.ai/mcp/servers/t9cgixg2ah/badge" alt="Things Server MCP server" /></a>
 
 ## Support the Project
 
@@ -29,7 +27,7 @@ If you find this project helpful, consider supporting its development:
 ### Prerequisites
 - macOS (Things 3 is Mac-only)
 - Things 3 app with "Enable Things URLs" turned on (Settings → General)
-- A MCP client, such as Claude Desktop or Claude Code
+- An MCP client, such as the ChatGPT desktop app, Codex, Claude Desktop, or Claude Code
 - [uv](https://docs.astral.sh/uv/) Python package manager: `brew install uv`
 
 ### Install via uvx (Any MCP Client)
@@ -79,10 +77,40 @@ To make it available globally (across all projects), add `-s user`:
 claude mcp add-json -s user things '{"command":"uvx","args":["things-mcp"]}'
 ```
 
+### ChatGPT Desktop and Codex
+
+The ChatGPT desktop app, Codex CLI, and Codex IDE extension share the same local MCP configuration. The quickest way to add Things MCP is with the Codex CLI:
+
+```bash
+codex mcp add things -- uvx things-mcp
+```
+
+Confirm that the server is configured:
+
+```bash
+codex mcp list
+```
+
+You can also configure it in the ChatGPT desktop app:
+
+1. Open **Settings → MCP servers**
+2. Select **Add server**
+3. Enter `things` as the name, choose **STDIO**, and enter the result of `which uvx` as the command to launch (should look similar to /opt/homebrew/bin/uvx)
+4. Enter `things-mcp` under arguments
+5. Save the server and select **Restart**
+
+> [!IMPORTANT]
+> When using the ChatGPT desktop client, you must use **Work** mode to access Things MCP. Select **ChatGPT** from the top-left menu, then choose **Work** from the toggle at the top of the page. Regular **Chat** mode does not use locally configured MCP tools. You can also select the separate **Codex** view, which shares the same MCP configuration.
+
+In ChatGPT Work or Codex, type `/mcp` to check that the Things server is connected, then try asking, "What's in my Things inbox?"
+
+This local setup does not work in ChatGPT on the web because the web client does not read local Codex MCP configuration. See [OpenAI's MCP documentation](https://developers.openai.com/codex/mcp/) and [ChatGPT Work and Codex](https://help.openai.com/en/articles/20001275-chatgpt-work-and-codex) for current availability and interface details.
+
 ### Verify it's working
 
 After installation:
 - If using Claude Desktop, you should see "Things MCP" in the "Search and tools" list
+- If using ChatGPT Work or Codex, type `/mcp` and confirm that the Things server is connected
 - Try asking: "What's in my Things inbox?"
 
 ### Sample Usage with Claude Desktop
@@ -106,7 +134,7 @@ After installation:
 - `get-upcoming` - Get upcoming todos
 - `get-anytime` - Get todos from Anytime list
 - `get-someday` - Get todos from Someday list, including tasks in Someday projects
-- `get-logbook` - Get completed todos
+- `get-logbook` - Get completed and canceled todos, optionally for one project
 - `get-trash` - Get trashed todos
 
 ### Basic Operations
@@ -124,7 +152,7 @@ After installation:
 - `search-advanced` - Advanced search with multiple filters
 
 ### Time-based Operations
-- `get-recent` - Get recently created items
+- `get-recent` - Get open items created within a rolling time window
 
 ### Things URL Scheme Operations
 - `add-todo` - Create a new todo
@@ -161,15 +189,20 @@ These same read tools also return **structured content** alongside the human-rea
 - `deadline` - Filter by deadline (YYYY-MM-DD)
 - `tag` - Filter by tag
 - `area` - Filter by area UUID
+- `stop_date` - Filter by completion/cancellation date (YYYY-MM-DD, optionally with an operator such as '>=2024-01-01', or 'past'/'future')
+- `project` - Filter by project UUID (includes items under the project's headings)
 - `type` - Filter by item type (to-do/project/heading)
 - `last` - Filter by creation date (e.g., '3d' for last 3 days, '1w' for last week)
 
 ### get-recent
-- `period` - Time period (e.g., '3d', '1w', '2m', '1y')
+- `period` (required) - Rolling window back from now (e.g., '1d' = the last 24 hours, '1w', '2m', '1y'); months ≈ 30 days, years ≈ 365 days. Returns open (incomplete) items only, newest first
 
 ### get-logbook
 - `period` (optional, default: '7d') - Look-back window by completion date. Accepts `d`/`w`/`m`/`y` (e.g., '3d', '1w', '2m', '1y'); months ≈ 30 days, years ≈ 365 days
-- `limit` (optional, default: 50) - Maximum number of completed items to return
+- `limit` (optional, default: 50) - Maximum number of items to return
+- `project_uuid` (optional) - Only return items from this project, including items under its headings
+
+Returns both completed and canceled items; each item's `status` tells them apart.
 
 ### get-tag-usage
 - `only_unused` (optional, default: false) - Return only tags that no item references (cleanup candidates)
@@ -177,7 +210,7 @@ These same read tools also return **structured content** alongside the human-rea
 ### update-todo (checklist & tags)
 - `tags` - Replace all tags on the todo
 - `add_tags` - Append tags without removing existing ones
-- `checklist_items` - Replace the entire checklist with this list
+- `checklist_items` - Replace the entire checklist with this list; pass an empty list (`[]`) to clear it. Omit it to leave the checklist unchanged
 - `prepend_checklist_items` - Add these items to the top of the checklist
 - `append_checklist_items` - Add these items to the bottom of the checklist
 

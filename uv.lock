@@ -1226,7 +1226,7 @@ wheels = [
 
 [[package]]
 name = "things-mcp"
-version = "0.8.1"
+version = "0.8.2"
 source = { editable = "." }
 dependencies = [
     { name = "fastmcp" },
@@ -1254,12 +1254,9 @@ provides-extras = ["test"]
 
 [[package]]
 name = "things-py"
-version = "0.0.15"
+version = "1.0.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/09/bf/dbba75d9a4e38de0d91dff8b1d0aacd754df4080d7c17eae3a1640a4d17f/things.py-0.0.15.tar.gz", hash = "sha256:95ee8602083cf8b9fde59f64486fa6f3d13b1f84bd565c60dd77599c07e7ea16", size = 27476, upload-time = "2023-05-22T19:42:19.238Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/b4/a3/97c7e8a2b9ab527cef9c31b74d88d730e4ba539bf6e9743522f9b7584122/things.py-0.0.15-py3-none-any.whl", hash = "sha256:5c75e7f35eb6e9558fa937bfa0b7563f5dc3b726adade836131e572a15c47a0d", size = 26671, upload-time = "2023-05-22T19:42:17.516Z" },
-]
+sdist = { url = "https://files.pythonhosted.org/packages/8a/f7/7ca01abf3927ed680688e2ce4c608f0c252dc224134ca2b1f04940db0efd/things_py-1.0.1.tar.gz", hash = "sha256:6d760727e57c0cfb85f18a63b36459287573f7d7c0442874a76d4ef38b92089d", size = 30360, upload-time = "2026-02-28T22:23:41.197Z" }
 
 [[package]]
 name = "typing-extensions"

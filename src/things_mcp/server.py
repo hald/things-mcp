@@ -287,33 +287,43 @@ def _parse_logbook_period(period: str):
     return timedelta(days=int(match.group(1)) * _LOGBOOK_PERIOD_DAYS[match.group(2)])
 
 
-def _stop_datetime(todo):
-    """Parse a todo's stop_date into a naive datetime, or None if absent/unparseable."""
-    stop = todo.get('stop_date')
-    if not stop:
+def _item_datetime(todo, key):
+    """Parse a todo's local-time date field (e.g. 'stop_date', 'created') into a
+    naive datetime, or None if absent/unparseable."""
+    value = todo.get(key)
+    if not value:
         return None
     try:
-        return datetime.fromisoformat(str(stop).replace(' ', 'T'))
+        return datetime.fromisoformat(str(value).replace(' ', 'T'))
     except ValueError:
         return None
 
 
+def _stop_datetime(todo):
+    """Parse a todo's stop_date into a naive datetime, or None if absent/unparseable."""
+    return _item_datetime(todo, 'stop_date')
+
+
 @mcp.tool
-async def get_logbook(period: str = "7d", limit: int = 50, offset: int = 0) -> ToolResult:
-    """Get completed todos from Logbook, defaults to last 7 days
+async def get_logbook(period: str = "7d", limit: int = 50, offset: int = 0,
+                      project_uuid: str = None) -> ToolResult:
+    """Get completed and canceled todos from Logbook, defaults to last 7 days, optionally filtered by project
 
     Args:
         period: Time period to look back (e.g., '3d', '1w', '2m', '1y'). Defaults to '7d'
         limit: Maximum number of entries to return. Defaults to 50
         offset: Number of entries to skip from the start (default: 0)
+        project_uuid: Optional UUID of a project to filter by; includes items
+            under the project's headings
     """
     err = _validate_pagination(limit, offset)
     if err:
         return _error_result(err)
     # things.last(period, status='completed') filters on creationDate, not
     # stopDate — so tasks created before the window but completed inside it
-    # are invisible (which is most tasks in real use). Fetch all completed
-    # tasks and filter on stop_date in Python.
+    # are invisible (which is most tasks in real use). Fetch all logged
+    # tasks and filter on stop_date in Python. The Logbook holds both
+    # completed and canceled tasks, so query both statuses.
     delta = _parse_logbook_period(period)
     if delta is None:
         return _error_result(
@@ -322,9 +332,11 @@ async def get_logbook(period: str = "7d", limit: int = 50, offset: int = 0) -> T
         )
 
     cutoff = datetime.now() - delta
-    all_completed = things.tasks(status='completed', include_items=True) or []
+    logged = []
+    for status in ('completed', 'canceled'):
+        logged.extend(things.tasks(status=status, include_items=True, project=project_uuid) or [])
     in_window = []
-    for todo in all_completed:
+    for todo in logged:
         stopped = _stop_datetime(todo)
         if stopped is not None and stopped >= cutoff:
             in_window.append((stopped, todo))
@@ -519,9 +531,11 @@ async def search_todos(query: str, limit: int = None, offset: int = 0) -> ToolRe
 async def search_advanced(
     status: str = None,
     start_date: str = None,
+    stop_date: str = None,
     deadline: str = None,
     tag: str = None,
     area: str = None,
+    project: str = None,
     type: str = None,
     last: str = None,
     limit: int = None,
@@ -532,9 +546,12 @@ async def search_advanced(
     Args:
         status: Filter by todo status (incomplete, completed, canceled)
         start_date: Filter by start date (YYYY-MM-DD)
+        stop_date: Filter by completion/cancellation date (YYYY-MM-DD with optional
+            operator, e.g. '>=2024-01-01', or 'past'/'future')
         deadline: Filter by deadline (YYYY-MM-DD)
         tag: Filter by tag
         area: Filter by area UUID
+        project: Filter by project UUID (includes items under the project's headings)
         type: Filter by item type (to-do, project, heading)
         last: Filter by creation date (e.g., '3d' for last 3 days, '1w' for last week, '1y' for last year)
         limit: Maximum number of items to return (default: all)
@@ -548,12 +565,16 @@ async def search_advanced(
         search_params["status"] = status
     if start_date:
         search_params["start_date"] = start_date
+    if stop_date:
+        search_params["stop_date"] = stop_date
     if deadline:
         search_params["deadline"] = deadline
     if tag:
         search_params["tag"] = tag
     if area:
         search_params["area"] = area
+    if project:
+        search_params["project"] = project
     if last:
         search_params["last"] = last
 
@@ -568,17 +589,30 @@ async def search_advanced(
 # Recent items
 @mcp.tool
 async def get_recent(period: str, limit: int = None, offset: int = 0) -> ToolResult:
-    """Get recently created items
+    """Get open (incomplete) items created within a rolling time window, newest first
 
     Args:
-        period: Time period (e.g., '3d', '1w', '2m', '1y')
+        period: How far back from now to look (e.g., '1d' = the last 24 hours, '1w', '2m', '1y')
         limit: Maximum number of items to return (default: all)
         offset: Number of items to skip from the start (default: 0)
     """
     err = _validate_pagination(limit, offset)
     if err:
         return _error_result(err)
-    todos = things.last(period, include_items=True)
+    delta = _parse_logbook_period(period)
+    if delta is None:
+        return _error_result(
+            f"Invalid period {period!r}. Use a number followed by d/w/m/y, "
+            "e.g. '1d', '2w', '3m', '1y'."
+        )
+    # things.last() compares the local-time creation date against SQLite's
+    # UTC 'now', so its window is skewed by the UTC offset (west of UTC, '1d'
+    # misses items from earlier in the day). It also rejects months. Over-fetch
+    # by a day and filter on 'created' (local time) in Python.
+    todos = things.last(f"{delta.days + 1}d", include_items=True) or []
+    cutoff = datetime.now() - delta
+    todos = [t for t in todos
+             if (created := _item_datetime(t, 'created')) is not None and created >= cutoff]
     return _paginate_result(todos, format_todo, limit, offset, f"No items found in the last {period}")
 
 # Things URL Scheme tools
@@ -738,7 +772,8 @@ async def update_todo(
         list_id: The ID of a project or area to move the to-do into (takes precedence over list)
         heading: The heading title to move the to-do under
         heading_id: The heading ID to move the to-do under (takes precedence over heading)
-        checklist_items: Replace the entire checklist with these items
+        checklist_items: Replace the entire checklist with these items. Pass an
+            empty list to clear the checklist.
         prepend_checklist_items: Add these items to the start of the existing checklist
         append_checklist_items: Add these items to the end of the existing checklist
     """

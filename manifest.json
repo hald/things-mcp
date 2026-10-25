@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "things-mcp",
   "display_name": "Things MCP",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "description": "Model Context Protocol server for Things 3 task management app",
   "long_description": "This extension provides comprehensive task management capabilities through the Things 3 app. It allows you to view, create, update, and search todos, projects, areas, and tags.",
   "author": {
@@ -43,7 +43,7 @@
     },
     {
       "name": "get_logbook",
-      "description": "Get completed todos from Logbook"
+      "description": "Get completed and canceled todos from Logbook, optionally filtered by project"
     },
     {
       "name": "get_trash",
@@ -87,7 +87,7 @@
     },
     {
       "name": "get_recent",
-      "description": "Get recently created items"
+      "description": "Get open items created within a rolling time window"
     },
     {
       "name": "add_todo",

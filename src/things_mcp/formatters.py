@@ -112,6 +112,8 @@ def format_todo(todo: dict) -> str:
 
     if todo.get('start_date'):
         todo_text += f"\nStart Date: {todo['start_date']}"
+    if todo.get('reminder_time'):
+        todo_text += f"\nReminder: {todo['reminder_time']}"
     if todo.get('deadline'):
         todo_text += f"\nDeadline: {todo['deadline']}"
     if todo.get('stop_date'):
@@ -156,6 +158,9 @@ def format_project(project: dict, include_items: bool = False) -> str:
     if project.get('notes'):
         project_text += f"\nNotes: {project['notes']}"
 
+    if project.get('tags'):
+        project_text += f"\nTags: {', '.join(project['tags'])}"
+
     project_text = _append_timestamps(project_text, project)
 
     # Always show headings for projects.
@@ -181,6 +186,9 @@ def format_area(area: dict, include_items: bool = False) -> str:
 
     if area.get('notes'):
         area_text += f"\nNotes: {area['notes']}"
+
+    if area.get('tags'):
+        area_text += f"\nTags: {', '.join(area['tags'])}"
 
     area_text = _append_timestamps(area_text, area)
 
