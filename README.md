@@ -134,7 +134,7 @@ After installation:
 - `get-upcoming` - Get upcoming todos
 - `get-anytime` - Get todos from Anytime list
 - `get-someday` - Get todos from Someday list, including tasks in Someday projects
-- `get-logbook` - Get completed todos
+- `get-logbook` - Get completed and canceled todos, optionally for one project
 - `get-trash` - Get trashed todos
 
 ### Basic Operations
@@ -152,7 +152,7 @@ After installation:
 - `search-advanced` - Advanced search with multiple filters
 
 ### Time-based Operations
-- `get-recent` - Get recently created items
+- `get-recent` - Get open items created within a rolling time window
 
 ### Things URL Scheme Operations
 - `add-todo` - Create a new todo
@@ -189,15 +189,20 @@ These same read tools also return **structured content** alongside the human-rea
 - `deadline` - Filter by deadline (YYYY-MM-DD)
 - `tag` - Filter by tag
 - `area` - Filter by area UUID
+- `stop_date` - Filter by completion/cancellation date (YYYY-MM-DD, optionally with an operator such as '>=2024-01-01', or 'past'/'future')
+- `project` - Filter by project UUID (includes items under the project's headings)
 - `type` - Filter by item type (to-do/project/heading)
 - `last` - Filter by creation date (e.g., '3d' for last 3 days, '1w' for last week)
 
 ### get-recent
-- `period` - Time period (e.g., '3d', '1w', '2m', '1y')
+- `period` (required) - Rolling window back from now (e.g., '1d' = the last 24 hours, '1w', '2m', '1y'); months ≈ 30 days, years ≈ 365 days. Returns open (incomplete) items only, newest first
 
 ### get-logbook
 - `period` (optional, default: '7d') - Look-back window by completion date. Accepts `d`/`w`/`m`/`y` (e.g., '3d', '1w', '2m', '1y'); months ≈ 30 days, years ≈ 365 days
-- `limit` (optional, default: 50) - Maximum number of completed items to return
+- `limit` (optional, default: 50) - Maximum number of items to return
+- `project_uuid` (optional) - Only return items from this project, including items under its headings
+
+Returns both completed and canceled items; each item's `status` tells them apart.
 
 ### get-tag-usage
 - `only_unused` (optional, default: false) - Return only tags that no item references (cleanup candidates)
@@ -205,7 +210,7 @@ These same read tools also return **structured content** alongside the human-rea
 ### update-todo (checklist & tags)
 - `tags` - Replace all tags on the todo
 - `add_tags` - Append tags without removing existing ones
-- `checklist_items` - Replace the entire checklist with this list
+- `checklist_items` - Replace the entire checklist with this list; pass an empty list (`[]`) to clear it. Omit it to leave the checklist unchanged
 - `prepend_checklist_items` - Add these items to the top of the checklist
 - `append_checklist_items` - Add these items to the bottom of the checklist
 
