@@ -31,15 +31,10 @@ def format_when_with_reminder(date: str, time: str) -> str:
 
 def execute_url(url: str) -> None:
     """Execute a Things URL without bringing Things to the foreground."""
-    try:
-        # Use 'do shell script' with 'open -g' to open in background
-        subprocess.run([
-            'osascript', '-e',
-            f'do shell script "open -g \\"{url}\\""'
-        ], check=True, capture_output=True, text=True)
-    except subprocess.CalledProcessError:
-        # Fallback - still try with open -g directly
-        subprocess.run(['open', '-g', url], check=True)
+    # Pass the URL as an argv entry so no shell or AppleScript ever parses it.
+    # Output is captured so nothing leaks onto stdout, which carries the MCP
+    # protocol in stdio mode.
+    subprocess.run(['open', '-g', url], check=True, capture_output=True, text=True)
 
 
 def add_area(title: str) -> str:

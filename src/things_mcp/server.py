@@ -1,4 +1,5 @@
 from typing import List
+import hmac
 import json
 import logging
 import os
@@ -6,6 +7,7 @@ import re
 from datetime import datetime, timedelta
 import things
 from fastmcp import FastMCP
+from fastmcp.server.auth import AccessToken, TokenVerifier
 from fastmcp.tools.tool import ToolResult
 from .formatters import format_todo, format_project, format_area, format_tag, format_heading
 from . import url_scheme
@@ -18,9 +20,49 @@ logger = logging.getLogger(__name__)
 TRANSPORT = os.environ.get("THINGS_MCP_TRANSPORT", "stdio")  # "stdio" or "http"
 HTTP_HOST = os.environ.get("THINGS_MCP_HOST", "127.0.0.1")
 HTTP_PORT = int(os.environ.get("THINGS_MCP_PORT", "8000"))
+AUTH_TOKEN_ENV = "THINGS_MCP_AUTH_TOKEN"
+MIN_AUTH_TOKEN_LENGTH = 32
 
 # Initialize FastMCP server
 mcp = FastMCP("Things")
+
+
+class BearerTokenVerifier(TokenVerifier):
+    """Accept HTTP requests whose bearer token matches a shared secret.
+
+    FastMCP's StaticTokenVerifier is documented as development-only and looks
+    tokens up in a dict; this compares in constant time instead.
+    """
+
+    def __init__(self, token: str):
+        super().__init__()
+        self._token = token.encode()
+
+    async def verify_token(self, token: str) -> AccessToken | None:
+        if not hmac.compare_digest(token.encode(), self._token):
+            return None
+        return AccessToken(token=token, client_id="things-mcp", scopes=[])
+
+
+def _http_auth_from_env(environ=os.environ) -> BearerTokenVerifier:
+    """Build the HTTP auth provider, refusing to start without a strong token.
+
+    HTTP mode exposes read and write access to the whole Things database, so it
+    fails closed: any process or host that can reach the port would otherwise
+    have full access.
+    """
+    token = environ.get(AUTH_TOKEN_ENV, "").strip()
+    if not token:
+        raise SystemExit(
+            f"HTTP transport requires {AUTH_TOKEN_ENV}. Generate one with "
+            f"`openssl rand -hex 32` and send it as 'Authorization: Bearer <token>'."
+        )
+    if len(token) < MIN_AUTH_TOKEN_LENGTH:
+        raise SystemExit(
+            f"{AUTH_TOKEN_ENV} must be at least {MIN_AUTH_TOKEN_LENGTH} characters. "
+            f"Generate one with `openssl rand -hex 32`."
+        )
+    return BearerTokenVerifier(token)
 
 
 # Build a set of Someday project UUIDs and a mapping of heading UUID -> project UUID
@@ -952,6 +994,7 @@ async def search_items(query: str) -> str:
 def main():
     """Main entry point for the Things MCP server."""
     if TRANSPORT == "http":
+        mcp.auth = _http_auth_from_env()
         mcp.run(transport="http", host=HTTP_HOST, port=HTTP_PORT)
     else:
         mcp.run()

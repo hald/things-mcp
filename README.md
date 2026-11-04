@@ -302,6 +302,8 @@ things-mcp/
 
 By default, the server uses stdio transport for communication with MCP clients. For remote access scenarios, you can run the server with HTTP transport.
 
+HTTP mode gives full read and write access to your Things database, so it requires a bearer token. The server refuses to start in HTTP mode without one, and rejects requests that don't send it with `401`.
+
 #### Configuration
 
 Set these environment variables to enable HTTP transport:
@@ -311,15 +313,32 @@ Set these environment variables to enable HTTP transport:
 | `THINGS_MCP_TRANSPORT` | `stdio` | Transport type: `stdio` or `http` |
 | `THINGS_MCP_HOST` | `127.0.0.1` | HTTP server bind address |
 | `THINGS_MCP_PORT` | `8000` | HTTP server port |
+| `THINGS_MCP_AUTH_TOKEN` | *(required for `http`)* | Shared secret, at least 32 characters. Clients send it as `Authorization: Bearer <token>` |
 
 #### Example
 
 ```bash
+# Generate a token once and keep it somewhere safe (e.g. your password manager)
+openssl rand -hex 32
+
 # Using uvx
-THINGS_MCP_TRANSPORT=http THINGS_MCP_HOST=0.0.0.0 THINGS_MCP_PORT=8000 uvx things-mcp
+THINGS_MCP_TRANSPORT=http THINGS_MCP_AUTH_TOKEN=<token> uvx things-mcp
 
 # Or from source
-THINGS_MCP_TRANSPORT=http THINGS_MCP_HOST=0.0.0.0 THINGS_MCP_PORT=8000 uv run things-mcp
+THINGS_MCP_TRANSPORT=http THINGS_MCP_AUTH_TOKEN=<token> uv run things-mcp
 ```
+
+The client then sends the token as a header. For example, in Zed's `settings.json`:
+
+```json
+"context_servers": {
+  "things": {
+    "url": "http://127.0.0.1:8000/mcp",
+    "headers": { "Authorization": "Bearer <token>" }
+  }
+}
+```
+
+The server has no TLS, so the token and your data travel in plain text. Keep the default `127.0.0.1` bind address. To reach the server from another machine, use an SSH tunnel (`ssh -L 8000:127.0.0.1:8000 your-mac`) or an HTTPS reverse proxy rather than binding to `0.0.0.0`.
 
 See `.env.example` for a sample configuration file.
