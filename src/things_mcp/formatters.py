@@ -208,8 +208,11 @@ def format_area(area: dict, include_items: bool = False) -> str:
     return area_text
 
 
-def format_tag(tag: dict, include_items: bool = False) -> str:
-    """Helper function to format a single tag."""
+def format_tag(tag: dict, include_items: bool = False, item_filter=None) -> str:
+    """Helper function to format a single tag.
+
+    item_filter, if given, narrows the tagged items (e.g. to a scope).
+    """
     tag_text = f"Title: {tag['title']}\nUUID: {tag['uuid']}"
 
     if tag.get('shortcut'):
@@ -217,6 +220,8 @@ def format_tag(tag: dict, include_items: bool = False) -> str:
 
     if include_items:
         todos = things.todos(tag=tag['title'])
+        if item_filter is not None:
+            todos = item_filter(todos)
         if todos:
             tag_text += "\n\nTagged Items:"
             for todo in todos:

@@ -8,9 +8,14 @@ from datetime import datetime, timedelta
 import things
 from fastmcp import FastMCP
 from fastmcp.server.auth import AccessToken, TokenVerifier
+from fastmcp.server.dependencies import get_access_token
 from fastmcp.tools.tool import ToolResult
 from .formatters import format_todo, format_project, format_area, format_tag, format_heading
 from . import url_scheme
+from .scope import (
+    DENY_ALL, SCOPE_CLAIM, SCOPE_ENV, Credential, Scope,
+    ScopeError, ScopeView, load_credentials_file, scope_from_env, token_digest,
+)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -21,48 +26,112 @@ TRANSPORT = os.environ.get("THINGS_MCP_TRANSPORT", "stdio")  # "stdio" or "http"
 HTTP_HOST = os.environ.get("THINGS_MCP_HOST", "127.0.0.1")
 HTTP_PORT = int(os.environ.get("THINGS_MCP_PORT", "8000"))
 AUTH_TOKEN_ENV = "THINGS_MCP_AUTH_TOKEN"
+TOKENS_FILE_ENV = "THINGS_MCP_TOKENS_FILE"
 MIN_AUTH_TOKEN_LENGTH = 32
+
+# Applies to stdio, and to THINGS_MCP_AUTH_TOKEN in HTTP mode.
+PROCESS_SCOPE = scope_from_env(os.environ)
 
 # Initialize FastMCP server
 mcp = FastMCP("Things")
 
 
 class BearerTokenVerifier(TokenVerifier):
-    """Accept HTTP requests whose bearer token matches a shared secret.
+    """Accept HTTP requests whose bearer token matches a configured credential.
 
-    FastMCP's StaticTokenVerifier is documented as development-only and looks
-    tokens up in a dict; this compares in constant time instead.
+    Each credential carries its own scope, attached to the access token as a
+    claim. Only SHA-256 digests are kept, compared in constant time. FastMCP's
+    StaticTokenVerifier is documented as development-only.
     """
 
-    def __init__(self, token: str):
+    def __init__(self, credentials: list[Credential]):
         super().__init__()
-        self._token = token.encode()
+        self._credentials = list(credentials)
 
     async def verify_token(self, token: str) -> AccessToken | None:
-        if not hmac.compare_digest(token.encode(), self._token):
+        digest = token_digest(token)
+        match = None
+        for credential in self._credentials:
+            if hmac.compare_digest(digest, credential.digest):
+                match = credential
+        if match is None:
             return None
-        return AccessToken(token=token, client_id="things-mcp", scopes=[])
+        return AccessToken(
+            token=token, client_id=match.name, scopes=[],
+            claims={SCOPE_CLAIM: match.scope.to_claim()},
+        )
 
 
 def _http_auth_from_env(environ=os.environ) -> BearerTokenVerifier:
     """Build the HTTP auth provider, refusing to start without a strong token.
 
-    HTTP mode exposes read and write access to the whole Things database, so it
+    HTTP mode exposes read and write access to the Things database, so it
     fails closed: any process or host that can reach the port would otherwise
     have full access.
     """
+    credentials = []
+
     token = environ.get(AUTH_TOKEN_ENV, "").strip()
-    if not token:
+    tokens_file = environ.get(TOKENS_FILE_ENV, "").strip()
+    if not token and not tokens_file:
         raise SystemExit(
-            f"HTTP transport requires {AUTH_TOKEN_ENV}. Generate one with "
-            f"`openssl rand -hex 32` and send it as 'Authorization: Bearer <token>'."
+            f"HTTP transport requires {AUTH_TOKEN_ENV} or {TOKENS_FILE_ENV}. Generate a "
+            f"token with `openssl rand -hex 32` and send it as 'Authorization: Bearer <token>'."
         )
-    if len(token) < MIN_AUTH_TOKEN_LENGTH:
+
+    if token:
+        if len(token) < MIN_AUTH_TOKEN_LENGTH:
+            raise SystemExit(
+                f"{AUTH_TOKEN_ENV} must be at least {MIN_AUTH_TOKEN_LENGTH} characters. "
+                f"Generate one with `openssl rand -hex 32`."
+            )
+        credentials.append(Credential(
+            name=AUTH_TOKEN_ENV, digest=token_digest(token), scope=scope_from_env(environ),
+        ))
+    elif SCOPE_ENV in environ:
+        # It only applies to THINGS_MCP_AUTH_TOKEN; ignoring it silently would
+        # leave someone believing access is narrower than it is.
         raise SystemExit(
-            f"{AUTH_TOKEN_ENV} must be at least {MIN_AUTH_TOKEN_LENGTH} characters. "
-            f"Generate one with `openssl rand -hex 32`."
+            f"{SCOPE_ENV} only applies to {AUTH_TOKEN_ENV}. "
+            f"Set a \"scope\" per token in {TOKENS_FILE_ENV} instead."
         )
-    return BearerTokenVerifier(token)
+
+    if tokens_file:
+        try:
+            credentials.extend(load_credentials_file(tokens_file))
+        except (OSError, ValueError) as error:
+            raise SystemExit(f"Invalid {TOKENS_FILE_ENV} ({tokens_file}): {error}")
+
+    names = [c.name for c in credentials]
+    digests = [c.digest for c in credentials]
+    if len(set(names)) != len(names):
+        raise SystemExit("Every token needs a unique name.")
+    if len(set(digests)) != len(digests):
+        raise SystemExit("The same token is configured more than once.")
+
+    for credential in credentials:
+        logger.info("HTTP token %r: %s", credential.name, credential.scope.describe())
+    return BearerTokenVerifier(credentials)
+
+
+def _current_scope() -> Scope:
+    if mcp.auth is None:
+        return PROCESS_SCOPE
+    access_token = get_access_token()
+    if access_token is None:
+        return DENY_ALL
+    return Scope.from_claim((access_token.claims or {}).get(SCOPE_CLAIM))
+
+
+def _scope_view() -> ScopeView:
+    return ScopeView(_current_scope())
+
+
+def _require_unrestricted(view: ScopeView, action: str) -> None:
+    if not view.unrestricted:
+        raise ScopeError(
+            f"{action} isn't available because this server is limited to specific areas and projects."
+        )
 
 
 # Build a set of Someday project UUIDs and a mapping of heading UUID -> project UUID
@@ -188,10 +257,14 @@ def _paginate_format(items, formatter, limit, offset, empty_msg, separator="\n\n
     return header + separator.join(formatter(i) for i in page)
 
 
-def _paginate_result(items, formatter, limit, offset, empty_msg, separator="\n\n---\n\n"):
+def _paginate_result(items, formatter, limit, offset, empty_msg, separator="\n\n---\n\n",
+                     *, view=None):
     """Like _paginate_format, but returns a FastMCP ToolResult that carries
     BOTH the human-readable text (channel 1) AND JSON-safe structured data
     (channel 2) under structured_content.
+
+    Items are first narrowed to the caller's scope. Doing it here covers every
+    list/search tool, including ones added later.
 
     This is the pattern for opting a tool into structured output on FastMCP
     3.x while preserving the nicely formatted text. The text is identical to
@@ -199,8 +272,8 @@ def _paginate_result(items, formatter, limit, offset, empty_msg, separator="\n\n
     dicts plus pagination metadata so programmatic clients don't have to
     scrape the prose.
     """
+    items = (view or _scope_view()).filter(items or [])
     text = _paginate_format(items, formatter, limit, offset, empty_msg, separator)
-    items = items or []
     total = len(items)
     end = total if limit is None else offset + limit
     page = [] if offset >= total else items[offset:end]
@@ -419,13 +492,15 @@ async def get_todos(project_uuid: str = None, include_items: bool = True,
     err = _validate_pagination(limit, offset)
     if err:
         return _error_result(err)
+    view = _scope_view()
     if project_uuid:
         project = things.get(project_uuid)
-        if not project or project.get('type') != 'project':
+        # Out-of-scope projects get the same error as missing ones.
+        if not project or project.get('type') != 'project' or not view.allows(project):
             return _error_result(f"Error: Invalid project UUID '{project_uuid}'")
 
     todos = things.todos(project=project_uuid, start=None, include_items=include_items)
-    return _paginate_result(todos, format_todo, limit, offset, "No todos found")
+    return _paginate_result(todos, format_todo, limit, offset, "No todos found", view=view)
 
 @mcp.tool
 async def get_projects(include_items: bool = False, limit: int = None, offset: int = 0) -> ToolResult:
@@ -476,10 +551,12 @@ async def get_tags(include_items: bool = False, limit: int = None, offset: int =
     err = _validate_pagination(limit, offset)
     if err:
         return _error_result(err)
+    view = _scope_view()
     tags = things.tags()
+    item_filter = None if view.unrestricted else view.filter
     return _paginate_result(
-        tags, lambda t: format_tag(t, include_items),
-        limit, offset, "No tags found"
+        tags, lambda t: format_tag(t, include_items, item_filter=item_filter),
+        limit, offset, "No tags found", view=view
     )
 
 @mcp.tool
@@ -494,8 +571,14 @@ async def get_tagged_items(tag: str, limit: int = None, offset: int = 0) -> Tool
     err = _validate_pagination(limit, offset)
     if err:
         return _error_result(err)
+    view = _scope_view()
+    empty_msg = f"No items found with tag '{tag}'"
+    # things.py raises for unknown tags; answer the same way for tags outside
+    # the scope so their existence isn't revealed.
+    if not view.unrestricted and tag not in view.visible_tags():
+        return _paginate_result([], format_todo, limit, offset, empty_msg, view=view)
     todos = things.todos(tag=tag, include_items=True)
-    return _paginate_result(todos, format_todo, limit, offset, f"No items found with tag '{tag}'")
+    return _paginate_result(todos, format_todo, limit, offset, empty_msg, view=view)
 
 @mcp.tool
 async def get_tag_usage(only_unused: bool = False) -> str:
@@ -510,15 +593,16 @@ async def get_tag_usage(only_unused: bool = False) -> str:
     Args:
         only_unused: If true, return only tags with zero items.
     """
-    tags = things.tags()
+    view = _scope_view()
+    tags = view.filter(things.tags())
     if not tags:
         return "No tags found"
 
     rows = []
     for tag in tags:
         title = tag['title']
-        open_count = len(things.todos(tag=title) or [])
-        all_count = len(things.tasks(tag=title, status=None) or [])
+        open_count = len(view.filter(things.todos(tag=title)))
+        all_count = len(view.filter(things.tasks(tag=title, status=None)))
         rows.append((title, open_count, all_count))
 
     if only_unused:
@@ -543,15 +627,16 @@ async def get_headings(project_uuid: str = None, limit: int = None, offset: int 
     err = _validate_pagination(limit, offset)
     if err:
         return _error_result(err)
+    view = _scope_view()
     if project_uuid:
         project = things.get(project_uuid)
-        if not project or project.get('type') != 'project':
+        if not project or project.get('type') != 'project' or not view.allows(project):
             return _error_result(f"Error: Invalid project UUID '{project_uuid}'")
         headings = things.tasks(type='heading', project=project_uuid)
     else:
         headings = things.tasks(type='heading')
 
-    return _paginate_result(headings, format_heading, limit, offset, "No headings found")
+    return _paginate_result(headings, format_heading, limit, offset, "No headings found", view=view)
 
 # Search operations
 @mcp.tool
@@ -620,13 +705,17 @@ async def search_advanced(
     if last:
         search_params["last"] = last
 
+    view = _scope_view()
+    if tag and not view.unrestricted and tag not in view.visible_tags():
+        return _paginate_result([], format_todo, limit, offset, "No matching todos found", view=view)
+
     if type:
         # Use things.tasks() when type is specified since things.todos()
         # hardcodes type="to-do"
         todos = things.tasks(type=type, include_items=True, **search_params)
     else:
         todos = things.todos(include_items=True, **search_params)
-    return _paginate_result(todos, format_todo, limit, offset, "No matching todos found")
+    return _paginate_result(todos, format_todo, limit, offset, "No matching todos found", view=view)
 
 # Recent items
 @mcp.tool
@@ -686,6 +775,10 @@ async def add_todo(
         heading: Heading title to add under
         heading_id: Heading ID to add under (takes precedence over heading)
     """
+    view = _scope_view()
+    if not view.unrestricted:
+        list_id = view.resolve_destination(list_id, list_title, heading_id)
+        list_title = None
     url = url_scheme.add_todo(
         title=title,
         notes=notes,
@@ -711,6 +804,7 @@ async def add_area(title: str) -> str:
     Args:
         title: Title of the area
     """
+    _require_unrestricted(_scope_view(), "Creating areas")
     area_id = url_scheme.add_area(title=title)
     return f"Created new area: {title} (id: {area_id})"
 
@@ -733,6 +827,9 @@ async def update_area(id: str, title: str = None, tags: List[str] = None) -> str
     """
     if title is None and tags is None:
         return "No changes specified — pass title and/or tags."
+    view = _scope_view()
+    if not view.unrestricted:
+        view.require(id, ("area",))
     url_scheme.update_area(area_id=id, title=title, tags=tags)
     changed = []
     if title is not None:
@@ -765,6 +862,10 @@ async def add_project(
         area_title: Title of area to add to
         todos: Initial todos to create in the project
     """
+    view = _scope_view()
+    if not view.unrestricted:
+        area_id = view.resolve_destination(area_id, area_title, kinds=("area",))
+        area_title = None
     url = url_scheme.add_project(
         title=title,
         notes=notes,
@@ -819,6 +920,11 @@ async def update_todo(
         prepend_checklist_items: Add these items to the start of the existing checklist
         append_checklist_items: Add these items to the end of the existing checklist
     """
+    view = _scope_view()
+    if not view.unrestricted:
+        view.require(id, ("to-do",))
+        list_id = view.resolve_destination(list_id, list, heading_id, required=False)
+        list = None
     url = url_scheme.update_todo(
         id=id,
         title=title,
@@ -880,6 +986,13 @@ async def bulk_update_todos(
     """
     if not ids:
         return "No items to update"
+
+    view = _scope_view()
+    if not view.unrestricted:
+        for uid in ids:
+            view.require(uid, ("to-do",))
+        list_id = view.resolve_destination(list_id, list, heading_id, required=False)
+        list = None
 
     attributes: dict = {}
     if list_id is not None:
@@ -945,6 +1058,9 @@ async def update_project(
         completed: Mark as completed
         canceled: Mark as canceled
     """
+    view = _scope_view()
+    if not view.unrestricted:
+        view.require(id, ("project",))
     url = url_scheme.update_project(
         id=id,
         title=title,
@@ -971,6 +1087,10 @@ async def show_item(
         query: Optional query to filter by
         filter_tags: Optional tags to filter by
     """
+    view = _scope_view()
+    if not view.unrestricted:
+        # Built-in lists like 'today' span every area, so only scoped items qualify.
+        view.require(id, ("to-do", "project", "area", "heading"))
     url = url_scheme.show(
         id=id,
         query=query,
@@ -986,6 +1106,7 @@ async def search_items(query: str) -> str:
     Args:
         query: Search query
     """
+    _require_unrestricted(_scope_view(), "Searching in the Things app")
     url = url_scheme.search(query)
     url_scheme.execute_url(url)
     return f"Searching for '{query}'"
