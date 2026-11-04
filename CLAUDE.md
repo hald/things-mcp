@@ -12,8 +12,8 @@ uv sync
 # Run the MCP server (stdio transport, default)
 uv run things-mcp
 
-# Run with HTTP transport
-THINGS_MCP_TRANSPORT=http uv run things-mcp
+# Run with HTTP transport (requires a bearer token of at least 32 characters)
+THINGS_MCP_TRANSPORT=http THINGS_MCP_AUTH_TOKEN=<token> uv run things-mcp
 ```
 
 ### Testing
@@ -59,18 +59,25 @@ This is a Model Context Protocol (MCP) server that bridges Claude Desktop with t
 
 2. **src/things_mcp/url_scheme.py** - Things URL scheme + AppleScript implementation
    - Constructs Things URLs for various operations
-   - Uses shell script with `open -g` to execute URLs without bringing Things to foreground
+   - Runs `open -g <url>` (argv list, no shell or AppleScript) to execute URLs without bringing Things to the foreground
    - Handles authentication tokens for update operations
    - `add_area`/`update_area` use AppleScript (`osascript`) since the Things URL scheme has no area commands; all user-supplied strings are escaped (`\` then `"`) before being embedded in the AppleScript string literal to prevent injection, and `osascript` is invoked with an argv list (no shell)
 
-3. **src/things_mcp/formatters.py** - Data formatting utilities
+3. **src/things_mcp/scope.py** - Limits access to configured Areas/Projects
+   - `Scope` (names: `Area`, `Area->Project`, `->Project`) comes from `THINGS_MCP_SCOPE` (`;`-separated), or per HTTP token from the `scope` list in `THINGS_MCP_TOKENS_FILE` (SHA-256 hashes), carried as an access-token claim
+   - `ScopeView` resolves names to UUIDs against the database per request (an entry matching 0 or 2+ items grants nothing); `_paginate_result` filters every list/search tool through it, and write tools call `require` / `resolve_destination`
+   - Out-of-scope and missing items must produce the same response, so clients can't probe
+
+4. **src/things_mcp/formatters.py** - Data formatting utilities
    - Converts Things database objects to human-readable text
    - Handles nested data (projects within areas, checklist items, etc.)
 
-4. **tests/** - Unit test suite (192 tests)
+5. **tests/** - Unit test suite (297 tests)
    - **conftest.py** - Pytest fixtures and mock data
    - **_helpers.py** - `tool_text()` reads the text channel from a `ToolResult` (or a plain-string result) so text assertions work across both return shapes
    - **test_url_scheme.py** - Tests for URL construction
+   - **test_http_auth.py** - Tests for HTTP bearer-token auth (incl. FastMCP's real Starlette app)
+   - **test_scope.py** - Tests for area/project scoping against a fake Things database, incl. per-token scope over real HTTP
    - **test_formatters.py** - Tests for data formatting
    - **test_things_server.py** - Tests for server tools (incl. pagination + structured-content shape)
    - **test_things_server_headings.py** - Tests for heading functionality
@@ -88,7 +95,7 @@ This is a Model Context Protocol (MCP) server that bridges Claude Desktop with t
 - **Someday Project Filtering**: Tasks from Someday projects are filtered out of Today, Upcoming, and Anytime views to match the Things UI behavior and reduce clutter
 - Unit tests mock all external dependencies (Things.py, shell commands)
 - Pytest configuration in pyproject.toml with async support
-- Supports both stdio (default) and HTTP transport modes
+- Supports both stdio (default) and HTTP transport modes. HTTP mode fails closed: `main()` installs `BearerTokenVerifier` from `THINGS_MCP_AUTH_TOKEN` and exits if the token is missing or shorter than 32 characters
 
 ## Things URL Scheme Authentication
 

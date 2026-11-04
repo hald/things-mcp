@@ -15,29 +15,38 @@ class TestExecuteUrl:
 
     @patch('subprocess.run')
     def test_execute_url_success(self, mock_run):
-        """Test successful URL execution via osascript with open -g."""
+        """Test URL execution via open -g, with the URL as a single argv entry."""
         mock_run.return_value = Mock(returncode=0)
 
         execute_url("things:///add?title=Test")
 
         mock_run.assert_called_once_with(
-            ['osascript', '-e', 'do shell script "open -g \\"things:///add?title=Test\\""'],
+            ['open', '-g', 'things:///add?title=Test'],
             check=True, capture_output=True, text=True
         )
 
     @patch('subprocess.run')
-    def test_execute_url_fallback(self, mock_run):
-        """Test fallback to open -g directly when osascript fails."""
-        # First call (osascript) fails, second call (open -g) succeeds
-        mock_run.side_effect = [
-            subprocess.CalledProcessError(1, 'osascript'),
-            Mock(returncode=0)
-        ]
+    def test_execute_url_does_not_use_a_shell(self, mock_run):
+        """Shell metacharacters reach open verbatim and are never interpreted."""
+        mock_run.return_value = Mock(returncode=0)
+        hostile = 'things:///add?title="; touch /tmp/pwned; echo "$(id)`id`'
 
-        execute_url("things:///add?title=Test")
+        execute_url(hostile)
 
-        assert mock_run.call_count == 2
-        mock_run.assert_called_with(['open', '-g', 'things:///add?title=Test'], check=True)
+        args, kwargs = mock_run.call_args
+        assert args[0] == ['open', '-g', hostile]
+        assert 'osascript' not in args[0]
+        assert not kwargs.get('shell')
+
+    @patch('subprocess.run')
+    def test_execute_url_runs_once_and_raises_on_failure(self, mock_run):
+        """A failure is reported, not retried, so an update is never applied twice."""
+        mock_run.side_effect = subprocess.CalledProcessError(1, 'open')
+
+        with pytest.raises(subprocess.CalledProcessError):
+            execute_url("things:///add?title=Test")
+
+        assert mock_run.call_count == 1
 
 
 class TestAddArea:

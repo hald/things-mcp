@@ -302,6 +302,8 @@ things-mcp/
 
 By default, the server uses stdio transport for communication with MCP clients. For remote access scenarios, you can run the server with HTTP transport.
 
+HTTP mode gives read and write access to your Things database, so it requires a bearer token. The server refuses to start in HTTP mode without one, and rejects requests that don't send it with `401`. Each token can be limited to specific areas and projects; see [Limiting Access to Areas and Projects](#limiting-access-to-areas-and-projects).
+
 #### Configuration
 
 Set these environment variables to enable HTTP transport:
@@ -311,15 +313,104 @@ Set these environment variables to enable HTTP transport:
 | `THINGS_MCP_TRANSPORT` | `stdio` | Transport type: `stdio` or `http` |
 | `THINGS_MCP_HOST` | `127.0.0.1` | HTTP server bind address |
 | `THINGS_MCP_PORT` | `8000` | HTTP server port |
+| `THINGS_MCP_AUTH_TOKEN` | *(this or `THINGS_MCP_TOKENS_FILE` is required for `http`)* | Shared secret, at least 32 characters. Clients send it as `Authorization: Bearer <token>` |
+| `THINGS_MCP_TOKENS_FILE` | *(none)* | Path to a JSON file mapping several tokens to their own areas and projects |
 
 #### Example
 
 ```bash
+# Generate a token once and keep it somewhere safe (e.g. your password manager)
+openssl rand -hex 32
+
 # Using uvx
-THINGS_MCP_TRANSPORT=http THINGS_MCP_HOST=0.0.0.0 THINGS_MCP_PORT=8000 uvx things-mcp
+THINGS_MCP_TRANSPORT=http THINGS_MCP_AUTH_TOKEN=<token> uvx things-mcp
 
 # Or from source
-THINGS_MCP_TRANSPORT=http THINGS_MCP_HOST=0.0.0.0 THINGS_MCP_PORT=8000 uv run things-mcp
+THINGS_MCP_TRANSPORT=http THINGS_MCP_AUTH_TOKEN=<token> uv run things-mcp
 ```
 
+The client then sends the token as a header. For example, in Zed's `settings.json`:
+
+```json
+"context_servers": {
+  "things": {
+    "url": "http://127.0.0.1:8000/mcp",
+    "headers": { "Authorization": "Bearer <token>" }
+  }
+}
+```
+
+The server has no TLS, so the token and your data travel in plain text. Keep the default `127.0.0.1` bind address. To reach the server from another machine, use an SSH tunnel (`ssh -L 8000:127.0.0.1:8000 your-mac`) or an HTTPS reverse proxy rather than binding to `0.0.0.0`.
+
 See `.env.example` for a sample configuration file.
+
+### Limiting Access to Areas and Projects
+
+You can limit what a client can read and change to any number of areas and projects, listed by name:
+
+| Entry | Means |
+|-------|-------|
+| `Work` | The area "Work" |
+| `Work->Launch` | The project "Launch" in the area "Work" |
+| `->Launch` | The project "Launch" that isn't in any area |
+
+Names are exact and case-sensitive; spaces around `->` are ignored.
+
+- An area includes its to-dos, its projects, and everything inside those projects, including projects added later.
+- A project includes its headings and to-dos.
+- Everything else, including the Inbox, is hidden from reads and rejected by writes. Missing and out-of-scope items get the same error, so a client can't probe for them.
+
+#### One scope per server process (stdio, or `THINGS_MCP_AUTH_TOKEN`)
+
+Set `THINGS_MCP_SCOPE` to entries separated by `;` (names often contain commas and spaces, so those stay part of the name). Unset, access is unrestricted. Once set, only the listed areas and projects are in scope; an empty value allows nothing.
+
+For stdio, put it in the client's `env` for this server, so each client that launches its own server gets its own scope. For example, in Zed's `settings.json`, two areas plus one project from a third area:
+
+```json
+"context_servers": {
+  "things-work": {
+    "command": "uvx",
+    "args": ["things-mcp"],
+    "env": { "THINGS_MCP_SCOPE": "Work; Side Projects; Clients->Acme Redesign" }
+  }
+}
+```
+
+#### One scope per token (HTTP)
+
+When several clients share one HTTP server, map each token to its own scope with `THINGS_MCP_TOKENS_FILE`. The file stores SHA-256 hashes, never the tokens themselves:
+
+```json
+{
+  "tokens": [
+    { "name": "work-laptop", "sha256": "<hash>", "scope": ["Work", "Side Projects"] },
+    { "name": "client-agent", "sha256": "<hash>", "scope": ["Clients->Acme Redesign", "Clients->Globex Audit"] },
+    { "name": "admin", "sha256": "<hash>", "unrestricted": true }
+  ]
+}
+```
+
+```bash
+token=$(openssl rand -hex 32)               # give this to the client
+printf %s "$token" | shasum -a 256          # put this hash in the file
+```
+
+Each entry needs a unique `name` (it appears in the startup log) and either a non-empty `scope` list or `"unrestricted": true`. The server refuses to start if the file is malformed, so a typo can't widen access. Restart the server after editing it. `THINGS_MCP_SCOPE` applies only to `THINGS_MCP_AUTH_TOKEN`; setting it with only a tokens file is an error.
+
+#### How names are matched
+
+Names are looked up again on every request, so the scope follows your Things library:
+
+- **No match** (a typo, a renamed area, a to-do's name): the entry grants nothing, and the server logs a warning once.
+- **More than one match** (two areas called "Work", or two open "Launch" projects in one area): the entry grants nothing until the names are unique, so a duplicate can never widen access. Completed projects are ignored when matching project names, so an old finished "Launch" doesn't clash with the current one.
+- **Renaming changes access.** Renaming an area or project to a name in someone's scope gives that client access to it; renaming it away removes access. Keep this in mind when several tokens share one library.
+- Names that contain `->` still work: every way of reading the entry is checked, and only an entry with exactly one match counts.
+
+#### What a scoped client can and can't do
+
+- **Reads** return only in-scope items. Tag tools only show tags used by in-scope items.
+- **New to-dos and projects** need an in-scope destination (`list_id`/`list_title`, `area_id`/`area_title`). Titles are resolved to an in-scope UUID first, so Things can never pick a same-named list outside the scope.
+- **Updates** need the item and any destination it moves to to be in scope. `bulk_update_todos` rejects the whole batch if any ID is out of scope.
+- **Not available:** `add_area`, `search_items`, and `show_item` for built-in lists like `today`, since they can't be limited to a scope.
+
+Scoping limits what *the MCP client* can do. It doesn't stop other programs running as your macOS user from reading the Things database directly.

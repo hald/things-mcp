@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Features
+
+- **Limit Access to Areas and Projects**: `THINGS_MCP_SCOPE` limits a server to areas and projects listed by name (`Work; Clients->Acme; ->Solo`). Names that match nothing or more than one item grant nothing. Reads only return in-scope items, writes are rejected unless the item and its destination are in scope, and tools that can't be limited (`add_area`, `search_items`, `show_item` on built-in lists) are disabled. In HTTP mode, `THINGS_MCP_TOKENS_FILE` maps each bearer token (stored as a SHA-256 hash) to its own scope, so several clients can share one server with different access. Unset, nothing changes.
+
+### Security
+
+- **HTTP Transport Requires a Bearer Token**: HTTP mode previously had no authentication, so any process or host that could reach the port could read and change the whole Things database. It now requires `THINGS_MCP_AUTH_TOKEN` (at least 32 characters), refuses to start without it, and rejects requests without a matching `Authorization: Bearer` header. The README example no longer binds to `0.0.0.0`. **Breaking for HTTP users**: set the token on the server and in your client.
+- **No Shell for Things URLs**: `execute_url` now runs `open -g <url>` directly instead of passing the URL through `osascript` and `/bin/sh`, so a URL can never be read as shell syntax. It also no longer retries on failure, which could apply an update twice.
+
 ## v0.8.2 - 2026-10-25
 
 ### Bug fixes
