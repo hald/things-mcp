@@ -12,8 +12,8 @@ uv sync
 # Run the MCP server (stdio transport, default)
 uv run things-mcp
 
-# Run with HTTP transport
-THINGS_MCP_TRANSPORT=http uv run things-mcp
+# Run with HTTP transport (requires a bearer token of at least 32 characters)
+THINGS_MCP_TRANSPORT=http THINGS_MCP_AUTH_TOKEN=<token> uv run things-mcp
 ```
 
 ### Testing
@@ -49,28 +49,37 @@ Test coverage includes:
 This is a Model Context Protocol (MCP) server that bridges Claude Desktop with the Things 3 task management app on macOS. The architecture consists of:
 
 1. **src/things_mcp/server.py** - Main MCP server implementation using FastMCP (3.x)
-   - Defines all MCP tools for interacting with Things (26 tools)
+   - Defines all MCP tools for interacting with Things (28 tools)
    - List views (inbox, today, upcoming, etc.)
    - CRUD operations for todos/projects/areas (Areas have create/read/update — no delete by design; see below)
    - Search and tag operations
    - Things URL scheme integration
    - Implements Someday project filtering to match Things UI behavior
+   - `add_todo` creates via AppleScript (to get the UUID), then sets the remaining fields with one URL-scheme `update`; `set_checklist_items` matches items by title because Things gives checklist items new UUIDs on every rewrite
+   - Unknown tags: `_prepare_tags` creates missing ones with a prefix from `THINGS_MCP_CREATE_TAG_PREFIXES` and reports the rest (the URL scheme silently drops unknown tags)
    - **Pagination + structured responses**: the 16 list/search read tools accept optional `limit`/`offset` and return a FastMCP `ToolResult` carrying both a human-readable text channel and a `structured_content` envelope `{items, count, total, offset, limit}`. Two helpers drive this: `_paginate_format` (text) and `_paginate_result` (wraps text + JSON-safe structured data); `_error_result` wraps early-return/validation errors. `get_tag_usage` intentionally stays a plain string.
 
 2. **src/things_mcp/url_scheme.py** - Things URL scheme + AppleScript implementation
    - Constructs Things URLs for various operations
-   - Uses shell script with `open -g` to execute URLs without bringing Things to foreground
+   - Runs `open -g <url>` (argv list, no shell or AppleScript) to execute URLs without bringing Things to the foreground
    - Handles authentication tokens for update operations
-   - `add_area`/`update_area` use AppleScript (`osascript`) since the Things URL scheme has no area commands; all user-supplied strings are escaped (`\` then `"`) before being embedded in the AppleScript string literal to prevent injection, and `osascript` is invoked with an argv list (no shell)
+   - `add_area`/`update_area`, `create_todo` and `create_tags` use AppleScript (`osascript`) since the Things URL scheme has no area commands; all user-supplied strings are escaped (`\` then `"`) before being embedded in the AppleScript string literal to prevent injection, and `osascript` is invoked with an argv list (no shell)
 
-3. **src/things_mcp/formatters.py** - Data formatting utilities
+3. **src/things_mcp/scope.py** - Limits access to configured Areas/Projects
+   - `Scope` (names: `Area`, `Area->Project`, `->Project`) comes from `THINGS_MCP_SCOPE` (`;`-separated), or per HTTP token from the `scope` list in `THINGS_MCP_TOKENS_FILE` (SHA-256 hashes), carried as an access-token claim
+   - `ScopeView` resolves names to UUIDs against the database per request (an entry matching 0 or 2+ items grants nothing); `_paginate_result` filters every list/search tool through it, and write tools call `require` / `resolve_destination`
+   - Out-of-scope and missing items must produce the same response, so clients can't probe
+
+4. **src/things_mcp/formatters.py** - Data formatting utilities
    - Converts Things database objects to human-readable text
    - Handles nested data (projects within areas, checklist items, etc.)
 
-4. **tests/** - Unit test suite (192 tests)
+5. **tests/** - Unit test suite (297 tests)
    - **conftest.py** - Pytest fixtures and mock data
    - **_helpers.py** - `tool_text()` reads the text channel from a `ToolResult` (or a plain-string result) so text assertions work across both return shapes
    - **test_url_scheme.py** - Tests for URL construction
+   - **test_http_auth.py** - Tests for HTTP bearer-token auth (incl. FastMCP's real Starlette app)
+   - **test_scope.py** - Tests for area/project scoping against a fake Things database, incl. per-token scope over real HTTP
    - **test_formatters.py** - Tests for data formatting
    - **test_things_server.py** - Tests for server tools (incl. pagination + structured-content shape)
    - **test_things_server_headings.py** - Tests for heading functionality
@@ -80,7 +89,7 @@ This is a Model Context Protocol (MCP) server that bridges Claude Desktop with t
 ## Key Implementation Details
 
 - Uses things.py library for reading Things SQLite database
-- Write operations use the Things URL scheme API, except Area create/update which use AppleScript (`osascript`)
+- Write operations use the Things URL scheme API, except Area create/update, to-do creation and tag creation, which use AppleScript (`osascript`)
 - FastMCP (3.x) provides the MCP protocol implementation
 - Read tools return a `ToolResult` (human-readable text + `structured_content`); write/report tools and error paths return plain strings
 - Error handling for invalid UUIDs and missing parameters; pagination args validated by `_validate_pagination`
@@ -88,7 +97,7 @@ This is a Model Context Protocol (MCP) server that bridges Claude Desktop with t
 - **Someday Project Filtering**: Tasks from Someday projects are filtered out of Today, Upcoming, and Anytime views to match the Things UI behavior and reduce clutter
 - Unit tests mock all external dependencies (Things.py, shell commands)
 - Pytest configuration in pyproject.toml with async support
-- Supports both stdio (default) and HTTP transport modes
+- Supports both stdio (default) and HTTP transport modes. HTTP mode fails closed: `main()` installs `BearerTokenVerifier` from `THINGS_MCP_AUTH_TOKEN` and exits if the token is missing or shorter than 32 characters
 
 ## Things URL Scheme Authentication
 

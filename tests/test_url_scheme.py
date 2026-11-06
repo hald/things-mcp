@@ -6,7 +6,7 @@ import urllib.parse
 from things_mcp.url_scheme import (
     execute_url, construct_url, add_todo, add_project, add_area, update_area,
     update_todo, update_project, show, search, format_when_with_reminder,
-    json_command,
+    json_command, create_todo, create_tags,
 )
 
 
@@ -15,29 +15,38 @@ class TestExecuteUrl:
 
     @patch('subprocess.run')
     def test_execute_url_success(self, mock_run):
-        """Test successful URL execution via osascript with open -g."""
+        """Test URL execution via open -g, with the URL as a single argv entry."""
         mock_run.return_value = Mock(returncode=0)
 
         execute_url("things:///add?title=Test")
 
         mock_run.assert_called_once_with(
-            ['osascript', '-e', 'do shell script "open -g \\"things:///add?title=Test\\""'],
+            ['open', '-g', 'things:///add?title=Test'],
             check=True, capture_output=True, text=True
         )
 
     @patch('subprocess.run')
-    def test_execute_url_fallback(self, mock_run):
-        """Test fallback to open -g directly when osascript fails."""
-        # First call (osascript) fails, second call (open -g) succeeds
-        mock_run.side_effect = [
-            subprocess.CalledProcessError(1, 'osascript'),
-            Mock(returncode=0)
-        ]
+    def test_execute_url_does_not_use_a_shell(self, mock_run):
+        """Shell metacharacters reach open verbatim and are never interpreted."""
+        mock_run.return_value = Mock(returncode=0)
+        hostile = 'things:///add?title="; touch /tmp/pwned; echo "$(id)`id`'
 
-        execute_url("things:///add?title=Test")
+        execute_url(hostile)
 
-        assert mock_run.call_count == 2
-        mock_run.assert_called_with(['open', '-g', 'things:///add?title=Test'], check=True)
+        args, kwargs = mock_run.call_args
+        assert args[0] == ['open', '-g', hostile]
+        assert 'osascript' not in args[0]
+        assert not kwargs.get('shell')
+
+    @patch('subprocess.run')
+    def test_execute_url_runs_once_and_raises_on_failure(self, mock_run):
+        """A failure is reported, not retried, so an update is never applied twice."""
+        mock_run.side_effect = subprocess.CalledProcessError(1, 'open')
+
+        with pytest.raises(subprocess.CalledProcessError):
+            execute_url("things:///add?title=Test")
+
+        assert mock_run.call_count == 1
 
 
 class TestAddArea:
@@ -80,6 +89,69 @@ class TestAddArea:
 
         script = mock_run.call_args[0][0][2]
         assert 'name:"foo\\\\bar"' in script
+
+
+class TestCreateTodo:
+    """create_todo uses AppleScript, since only it reports the new UUID."""
+
+    @patch('subprocess.run')
+    def test_returns_the_new_uuid(self, mock_run):
+        mock_run.return_value = Mock(stdout="NEW123\n", returncode=0)
+
+        assert create_todo("Buy milk") == "NEW123"
+
+        args, kwargs = mock_run.call_args
+        assert args[0][:2] == ['osascript', '-e']
+        script = args[0][2]
+        assert 'make new to do with properties {name:"Buy milk"}' in script
+        assert 'return id of newToDo' in script
+        assert 'set project' not in script and 'set area' not in script
+        assert not kwargs.get('shell')
+
+    @patch('subprocess.run')
+    def test_places_it_by_id(self, mock_run):
+        mock_run.return_value = Mock(stdout="NEW123\n", returncode=0)
+
+        create_todo("T", notes="n", list_id="P1", list_type="project")
+        script = mock_run.call_args[0][0][2]
+        assert '{name:"T", notes:"n"}' in script
+        assert 'set project of newToDo to project id "P1"' in script
+
+        create_todo("T", list_id="A1", list_type="area")
+        assert 'set area of newToDo to area id "A1"' in mock_run.call_args[0][0][2]
+
+    @patch('subprocess.run')
+    def test_escapes_strings(self, mock_run):
+        mock_run.return_value = Mock(stdout="X\n", returncode=0)
+
+        create_todo('Say "hi" \\ bye', notes='"', list_id='P"1', list_type='project')
+
+        script = mock_run.call_args[0][0][2]
+        assert 'name:"Say \\"hi\\" \\\\ bye"' in script
+        assert 'notes:"\\""' in script
+        assert 'project id "P\\"1"' in script
+
+    @patch('subprocess.run')
+    def test_rejects_an_unknown_list_type(self, mock_run):
+        with pytest.raises(ValueError):
+            create_todo("T", list_id="H1", list_type="heading")
+        mock_run.assert_not_called()
+
+
+class TestCreateTags:
+    @patch('subprocess.run')
+    def test_creates_each_tag_in_one_call(self, mock_run):
+        create_tags(['zed:start', 'ai:"x"'])
+
+        mock_run.assert_called_once()
+        script = mock_run.call_args[0][0][2]
+        assert 'make new tag with properties {name:"zed:start"}' in script
+        assert 'make new tag with properties {name:"ai:\\"x\\""}' in script
+
+    @patch('subprocess.run')
+    def test_nothing_to_create_runs_nothing(self, mock_run):
+        create_tags([])
+        mock_run.assert_not_called()
 
 
 class TestUpdateArea:

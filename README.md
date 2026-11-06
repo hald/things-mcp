@@ -139,6 +139,7 @@ After installation:
 
 ### Basic Operations
 - `get-todos` - Get todos, optionally filtered by project
+- `get-todos-by-ids` - Get specific todos by UUID in one call (for refreshing todos a client tracks)
 - `get-projects` - Get all projects
 - `get-areas` - Get all areas
 
@@ -155,12 +156,13 @@ After installation:
 - `get-recent` - Get open items created within a rolling time window
 
 ### Things URL Scheme Operations
-- `add-todo` - Create a new todo
+- `add-todo` - Create a new todo and return its ID
 - `add-project` - Create a new project
 - `add-area` - Create a new Area (via AppleScript; Things URL scheme has no add-area command)
 - `update-area` - Update an existing Area: rename or set tags (via AppleScript)
 - `update-todo` - Update an existing todo
 - `bulk-update-todos` - Apply the same update to many todos in a single operation
+- `set-checklist-items` - Tick or untick checklist items by title, keeping the others as they are
 - `update-project` - Update an existing project
 - `show-item` - Show a specific item or list in Things
 - `search-items` - Search for items in Things
@@ -207,12 +209,30 @@ Returns both completed and canceled items; each item's `status` tells them apart
 ### get-tag-usage
 - `only_unused` (optional, default: false) - Return only tags that no item references (cleanup candidates)
 
+### add-todo
+Returns the new todo's ID (`Created new todo: <title> (id: <uuid>)`). The todo is created with AppleScript, which reports the ID, and its heading, schedule, deadline, tags and checklist are then set with one URL-scheme update. That update needs the Things auth token; without it, the todo is created the old way and its ID isn't returned.
+
+### Tags that don't exist yet
+The Things URL scheme silently ignores tags that don't exist. `add-todo`, `update-todo` and `bulk-update-todos` check first: tags whose name starts with a prefix in `THINGS_MCP_CREATE_TAG_PREFIXES` (`;`-separated, e.g. `zed:;ai:`) are created, and any other unknown tags are left out and listed in the reply (`not applied, no such tag in Things: ...`). Unset, no tags are created.
+
 ### update-todo (checklist & tags)
 - `tags` - Replace all tags on the todo
 - `add_tags` - Append tags without removing existing ones
+- `remove_tags` - Remove these tags, keeping the others (combine with `add_tags`, not with `tags`)
 - `checklist_items` - Replace the entire checklist with this list; pass an empty list (`[]`) to clear it. Omit it to leave the checklist unchanged
 - `prepend_checklist_items` - Add these items to the top of the checklist
 - `append_checklist_items` - Add these items to the bottom of the checklist
+
+### set-checklist-items
+- `id` - UUID of the todo
+- `check` / `uncheck` - Titles of the items to mark completed or not completed
+
+The only way to change one checklist item is to rewrite the whole checklist, and Things gives every item a new ID when it does. So items are matched by title, and the checklist is rewritten with every other item's state unchanged. If a title matches no item or several, nothing changes. Requires the Things auth token.
+
+### get-todos-by-ids
+- `ids` - UUIDs of the todos to fetch
+
+Returns open, completed and canceled todos with their checklists and modification times. IDs that are missing, trashed, not todos, or outside the server's scope are all listed as `Not found` (and under `missing` in the structured content).
 
 ### bulk-update-todos
 Applies the same change to every todo in `ids` in a single operation. Requires the Things auth token to be enabled (Things → Settings → General → Enable Things URLs → Manage); the server reads it automatically.
@@ -302,6 +322,8 @@ things-mcp/
 
 By default, the server uses stdio transport for communication with MCP clients. For remote access scenarios, you can run the server with HTTP transport.
 
+HTTP mode gives read and write access to your Things database, so it requires a bearer token. The server refuses to start in HTTP mode without one, and rejects requests that don't send it with `401`. Each token can be limited to specific areas and projects; see [Limiting Access to Areas and Projects](#limiting-access-to-areas-and-projects).
+
 #### Configuration
 
 Set these environment variables to enable HTTP transport:
@@ -311,15 +333,105 @@ Set these environment variables to enable HTTP transport:
 | `THINGS_MCP_TRANSPORT` | `stdio` | Transport type: `stdio` or `http` |
 | `THINGS_MCP_HOST` | `127.0.0.1` | HTTP server bind address |
 | `THINGS_MCP_PORT` | `8000` | HTTP server port |
+| `THINGS_MCP_AUTH_TOKEN` | *(this or `THINGS_MCP_TOKENS_FILE` is required for `http`)* | Shared secret, at least 32 characters. Clients send it as `Authorization: Bearer <token>` |
+| `THINGS_MCP_TOKENS_FILE` | *(none)* | Path to a JSON file mapping several tokens to their own areas and projects |
+| `THINGS_MCP_CREATE_TAG_PREFIXES` | *(none)* | Prefixes (`;`-separated) of tag names the server may create when they don't exist yet; see [Tags that don't exist yet](#tags-that-dont-exist-yet) |
 
 #### Example
 
 ```bash
+# Generate a token once and keep it somewhere safe (e.g. your password manager)
+openssl rand -hex 32
+
 # Using uvx
-THINGS_MCP_TRANSPORT=http THINGS_MCP_HOST=0.0.0.0 THINGS_MCP_PORT=8000 uvx things-mcp
+THINGS_MCP_TRANSPORT=http THINGS_MCP_AUTH_TOKEN=<token> uvx things-mcp
 
 # Or from source
-THINGS_MCP_TRANSPORT=http THINGS_MCP_HOST=0.0.0.0 THINGS_MCP_PORT=8000 uv run things-mcp
+THINGS_MCP_TRANSPORT=http THINGS_MCP_AUTH_TOKEN=<token> uv run things-mcp
 ```
 
+The client then sends the token as a header. For example, in Zed's `settings.json`:
+
+```json
+"context_servers": {
+  "things": {
+    "url": "http://127.0.0.1:8000/mcp",
+    "headers": { "Authorization": "Bearer <token>" }
+  }
+}
+```
+
+The server has no TLS, so the token and your data travel in plain text. Keep the default `127.0.0.1` bind address. To reach the server from another machine, use an SSH tunnel (`ssh -L 8000:127.0.0.1:8000 your-mac`) or an HTTPS reverse proxy rather than binding to `0.0.0.0`.
+
 See `.env.example` for a sample configuration file.
+
+### Limiting Access to Areas and Projects
+
+You can limit what a client can read and change to any number of areas and projects, listed by name:
+
+| Entry | Means |
+|-------|-------|
+| `Work` | The area "Work" |
+| `Work->Launch` | The project "Launch" in the area "Work" |
+| `->Launch` | The project "Launch" that isn't in any area |
+
+Names are exact and case-sensitive; spaces around `->` are ignored.
+
+- An area includes its to-dos, its projects, and everything inside those projects, including projects added later.
+- A project includes its headings and to-dos.
+- Everything else, including the Inbox, is hidden from reads and rejected by writes. Missing and out-of-scope items get the same error, so a client can't probe for them.
+
+#### One scope per server process (stdio, or `THINGS_MCP_AUTH_TOKEN`)
+
+Set `THINGS_MCP_SCOPE` to entries separated by `;` (names often contain commas and spaces, so those stay part of the name). Unset, access is unrestricted. Once set, only the listed areas and projects are in scope; an empty value allows nothing.
+
+For stdio, put it in the client's `env` for this server, so each client that launches its own server gets its own scope. For example, in Zed's `settings.json`, two areas plus one project from a third area:
+
+```json
+"context_servers": {
+  "things-work": {
+    "command": "uvx",
+    "args": ["things-mcp"],
+    "env": { "THINGS_MCP_SCOPE": "Work; Side Projects; Clients->Acme Redesign" }
+  }
+}
+```
+
+#### One scope per token (HTTP)
+
+When several clients share one HTTP server, map each token to its own scope with `THINGS_MCP_TOKENS_FILE`. The file stores SHA-256 hashes, never the tokens themselves:
+
+```json
+{
+  "tokens": [
+    { "name": "work-laptop", "sha256": "<hash>", "scope": ["Work", "Side Projects"] },
+    { "name": "client-agent", "sha256": "<hash>", "scope": ["Clients->Acme Redesign", "Clients->Globex Audit"] },
+    { "name": "admin", "sha256": "<hash>", "unrestricted": true }
+  ]
+}
+```
+
+```bash
+token=$(openssl rand -hex 32)               # give this to the client
+printf %s "$token" | shasum -a 256          # put this hash in the file
+```
+
+Each entry needs a unique `name` (it appears in the startup log) and either a non-empty `scope` list or `"unrestricted": true`. The server refuses to start if the file is malformed, so a typo can't widen access. Restart the server after editing it. `THINGS_MCP_SCOPE` applies only to `THINGS_MCP_AUTH_TOKEN`; setting it with only a tokens file is an error.
+
+#### How names are matched
+
+Names are looked up again on every request, so the scope follows your Things library:
+
+- **No match** (a typo, a renamed area, a to-do's name): the entry grants nothing, and the server logs a warning once.
+- **More than one match** (two areas called "Work", or two open "Launch" projects in one area): the entry grants nothing until the names are unique, so a duplicate can never widen access. Completed projects are ignored when matching project names, so an old finished "Launch" doesn't clash with the current one.
+- **Renaming changes access.** Renaming an area or project to a name in someone's scope gives that client access to it; renaming it away removes access. Keep this in mind when several tokens share one library.
+- Names that contain `->` still work: every way of reading the entry is checked, and only an entry with exactly one match counts.
+
+#### What a scoped client can and can't do
+
+- **Reads** return only in-scope items. Tag tools only show tags used by in-scope items.
+- **New to-dos and projects** need an in-scope destination (`list_id`/`list_title`, `area_id`/`area_title`). Titles are resolved to an in-scope UUID first, so Things can never pick a same-named list outside the scope.
+- **Updates** need the item and any destination it moves to to be in scope. `bulk_update_todos` rejects the whole batch if any ID is out of scope.
+- **Not available:** `add_area`, `search_items`, and `show_item` for built-in lists like `today`, since they can't be limited to a scope.
+
+Scoping limits what *the MCP client* can do. It doesn't stop other programs running as your macOS user from reading the Things database directly.

@@ -7,8 +7,10 @@ from tests._helpers import tool_text
 from things_mcp.server import (
     get_todos, get_today, get_inbox, search_todos, search_advanced,
     get_logbook, _parse_logbook_period, _today_fallback, get_tag_usage, get_recent,
-    bulk_update_todos,
+    bulk_update_todos, add_todo, update_todo, set_checklist_items, get_todos_by_ids,
 )
+import subprocess
+from things_mcp import server
 
 
 @pytest.mark.asyncio
@@ -450,6 +452,7 @@ async def test_bulk_update_todos_list_id_overrides_list_title(mocker):
 @pytest.mark.asyncio
 async def test_bulk_update_todos_complete_and_tag(mocker):
     mocker.patch('things.token', return_value='tok')
+    mocker.patch('things.tags', return_value=[{'title': 'reviewed'}])
     mock_exec = mocker.patch('things_mcp.server.url_scheme.execute_url')
 
     await bulk_update_todos(
@@ -460,6 +463,217 @@ async def test_bulk_update_todos_complete_and_tag(mocker):
     for p in payload:
         assert p["attributes"]["completed"] is True
         assert p["attributes"]["add-tags"] == ["reviewed"]
+
+
+# --- add_todo returns the new ID ----------------------------------------------
+
+def _url_params(url):
+    return {k: v[0] for k, v in urllib.parse.parse_qs(
+        urllib.parse.urlparse(url).query, keep_blank_values=True).items()}
+
+
+@pytest.fixture
+def things_writes(mocker):
+    """Mock every way the server writes to Things."""
+    mocker.patch('things.token', return_value='tok')
+    mocker.patch('things.tags', return_value=[{'title': 'work'}, {'title': 'zed:start'}])
+    create_todo = mocker.patch('things_mcp.server.url_scheme.create_todo', return_value='NEW1')
+    create_tags = mocker.patch('things_mcp.server.url_scheme.create_tags')
+    execute_url = mocker.patch('things_mcp.server.url_scheme.execute_url')
+    return create_todo, create_tags, execute_url
+
+
+@pytest.mark.asyncio
+async def test_add_todo_returns_id_and_sets_the_rest_in_one_update(mocker, things_writes):
+    create_todo, _, execute_url = things_writes
+    mocker.patch('things.get', return_value={'uuid': 'P1', 'type': 'project'})
+
+    result = await add_todo(
+        title='New', notes='n', list_id='P1', heading='Phase 1',
+        when='2026-11-20@09:00', deadline='2026-11-27', checklist_items=['a', 'b'],
+    )
+
+    assert result == 'Created new todo: New (id: NEW1)'
+    create_todo.assert_called_once_with(title='New', notes='n', list_id='P1', list_type='project')
+    execute_url.assert_called_once()
+    url = execute_url.call_args[0][0]
+    assert url.startswith('things:///update?')
+    params = _url_params(url)
+    assert params['id'] == 'NEW1'
+    assert params['heading'] == 'Phase 1'
+    assert params['when'] == '2026-11-20@09:00'
+    assert params['deadline'] == '2026-11-27'
+    assert params['checklist-items'] == 'a\nb'
+    assert 'list-id' not in params  # placed by AppleScript, by ID
+
+
+@pytest.mark.asyncio
+async def test_add_todo_without_extra_fields_skips_the_update(things_writes):
+    _, _, execute_url = things_writes
+    assert await add_todo(title='Inbox item') == 'Created new todo: Inbox item (id: NEW1)'
+    execute_url.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_add_todo_unknown_list_id_creates_nothing(mocker, things_writes):
+    create_todo, _, _ = things_writes
+    mocker.patch('things.get', return_value=None)
+    result = await add_todo(title='New', list_id='NOPE')
+    assert result.startswith('Error: No project or area')
+    create_todo.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_add_todo_reports_the_id_when_the_update_fails(things_writes):
+    _, _, execute_url = things_writes
+    execute_url.side_effect = subprocess.CalledProcessError(1, 'open')
+    result = await add_todo(title='New', when='today')
+    assert result.startswith('Created new todo: New (id: NEW1), but setting its other fields failed')
+
+
+@pytest.mark.asyncio
+async def test_add_todo_without_token_falls_back_to_url_add(mocker, things_writes):
+    create_todo, _, execute_url = things_writes
+    mocker.patch('things.token', return_value=None)
+    result = await add_todo(title='New', when='today')
+    assert 'ID unknown' in result
+    create_todo.assert_not_called()
+    assert execute_url.call_args[0][0].startswith('things:///add?')
+
+
+# --- tags: create prefixed ones, report the rest -------------------------------
+
+@pytest.mark.asyncio
+async def test_add_todo_creates_prefixed_tags_and_reports_unknown_ones(monkeypatch, things_writes):
+    _, create_tags, execute_url = things_writes
+    monkeypatch.setattr(server, 'CREATE_TAG_PREFIXES', ('zed:', 'ai:'))
+
+    result = await add_todo(title='New', tags=['work', 'ai:review', 'foo'])
+
+    create_tags.assert_called_once_with(['ai:review'])
+    assert _url_params(execute_url.call_args[0][0])['tags'] == 'work,ai:review'
+    assert '(created tags: ai:review; not applied, no such tag in Things: foo)' in result
+
+
+@pytest.mark.asyncio
+async def test_no_tags_are_created_without_configured_prefixes(monkeypatch, things_writes):
+    _, create_tags, _ = things_writes
+    monkeypatch.setattr(server, 'CREATE_TAG_PREFIXES', ())
+    result = await update_todo(id='T1', add_tags=['ai:review'])
+    create_tags.assert_called_once_with([])
+    assert 'not applied, no such tag in Things: ai:review' in result
+
+
+# --- update_todo remove_tags ----------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_remove_tags_rewrites_the_list_without_them(mocker, things_writes):
+    _, _, execute_url = things_writes
+    mocker.patch('things.get', return_value={'uuid': 'T1', 'type': 'to-do', 'tags': ['work', 'zed:start']})
+
+    await update_todo(id='T1', remove_tags=['zed:start'], add_tags=['work'])
+
+    params = _url_params(execute_url.call_args[0][0])
+    assert params['tags'] == 'work'
+    assert 'add-tags' not in params
+
+
+@pytest.mark.asyncio
+async def test_removing_the_last_tag_clears_tags(mocker, things_writes):
+    _, _, execute_url = things_writes
+    mocker.patch('things.get', return_value={'uuid': 'T1', 'type': 'to-do', 'tags': ['zed:start']})
+    await update_todo(id='T1', remove_tags=['zed:start'])
+    assert _url_params(execute_url.call_args[0][0])['tags'] == ''
+
+
+@pytest.mark.asyncio
+async def test_remove_tags_conflicts_are_rejected(things_writes):
+    _, _, execute_url = things_writes
+    assert (await update_todo(id='T1', tags=['a'], remove_tags=['b'])).startswith('Error')
+    assert (await update_todo(id='T1', add_tags=['a'], remove_tags=['a'])).startswith('Error')
+    execute_url.assert_not_called()
+
+
+# --- set_checklist_items ----------------------------------------------------------
+
+def _todo_with_checklist(*items):
+    return {
+        'uuid': 'T1', 'type': 'to-do', 'title': 'Fixes',
+        'checklist': [{'title': t, 'status': s, 'uuid': f'C{i}'} for i, (t, s) in enumerate(items)],
+    }
+
+
+@pytest.mark.asyncio
+async def test_set_checklist_items_keeps_the_other_items_state(mocker, things_writes):
+    _, _, execute_url = things_writes
+    mocker.patch('things.get', return_value=_todo_with_checklist(
+        ('one', 'completed'), ('two', 'incomplete'), ('three', 'canceled'), ('four', 'completed'),
+    ))
+
+    result = await set_checklist_items(id='T1', check=['two'], uncheck=['four'])
+
+    payload = _captured_json_payload(execute_url)
+    assert payload[0]['operation'] == 'update' and payload[0]['id'] == 'T1'
+    assert payload[0]['attributes']['checklist-items'] == [
+        {'type': 'checklist-item', 'attributes': {'title': 'one', 'completed': True}},
+        {'type': 'checklist-item', 'attributes': {'title': 'two', 'completed': True}},
+        {'type': 'checklist-item', 'attributes': {'title': 'three', 'canceled': True}},
+        {'type': 'checklist-item', 'attributes': {'title': 'four'}},
+    ]
+    assert '2/4 done' in result
+
+
+@pytest.mark.asyncio
+async def test_set_checklist_items_rejects_missing_and_ambiguous_titles(mocker, things_writes):
+    _, _, execute_url = things_writes
+    mocker.patch('things.get', return_value=_todo_with_checklist(
+        ('same', 'incomplete'), ('same', 'incomplete'),
+    ))
+    result = await set_checklist_items(id='T1', check=['same', 'gone'])
+    assert "2 items titled 'same'" in result and "no item titled 'gone'" in result
+    execute_url.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_set_checklist_items_skips_a_rewrite_that_changes_nothing(mocker, things_writes):
+    _, _, execute_url = things_writes
+    mocker.patch('things.get', return_value=_todo_with_checklist(('one', 'completed')))
+    result = await set_checklist_items(id='T1', check=['one'])
+    assert 'already up to date' in result
+    execute_url.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_set_checklist_items_rejects_overlap(things_writes):
+    _, _, execute_url = things_writes
+    result = await set_checklist_items(id='T1', check=['a'], uncheck=['a'])
+    assert result.startswith('Error')
+    execute_url.assert_not_called()
+
+
+# --- get_todos_by_ids -------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_get_todos_by_ids_lists_missing_and_trashed_as_not_found(mocker):
+    items = {
+        'T1': {'uuid': 'T1', 'type': 'to-do', 'title': 'Open one', 'status': 'incomplete'},
+        'T2': {'uuid': 'T2', 'type': 'to-do', 'title': 'Done one', 'status': 'completed'},
+        'T3': {'uuid': 'T3', 'type': 'to-do', 'title': 'Trashed', 'trashed': True},
+        'P1': {'uuid': 'P1', 'type': 'project', 'title': 'A project'},
+    }
+    mocker.patch('things.get', side_effect=lambda uuid: items.get(uuid))
+
+    result = await get_todos_by_ids(['T1', 'T2', 'T1', 'T3', 'P1', 'NOPE'])
+
+    assert [i['uuid'] for i in result.structured_content['items']] == ['T1', 'T2']
+    assert result.structured_content['missing'] == ['T3', 'P1', 'NOPE']
+    assert 'Not found: T3, P1, NOPE' in tool_text(result)
+
+
+@pytest.mark.asyncio
+async def test_get_todos_by_ids_needs_ids():
+    result = await get_todos_by_ids([])
+    assert 'error' in result.structured_content
 
 
 # --- pagination: limit / offset across read tools (#41) -----------------------

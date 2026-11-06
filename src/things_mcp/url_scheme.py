@@ -31,15 +31,10 @@ def format_when_with_reminder(date: str, time: str) -> str:
 
 def execute_url(url: str) -> None:
     """Execute a Things URL without bringing Things to the foreground."""
-    try:
-        # Use 'do shell script' with 'open -g' to open in background
-        subprocess.run([
-            'osascript', '-e',
-            f'do shell script "open -g \\"{url}\\""'
-        ], check=True, capture_output=True, text=True)
-    except subprocess.CalledProcessError:
-        # Fallback - still try with open -g directly
-        subprocess.run(['open', '-g', url], check=True)
+    # Pass the URL as an argv entry so no shell or AppleScript ever parses it.
+    # Output is captured so nothing leaks onto stdout, which carries the MCP
+    # protocol in stdio mode.
+    subprocess.run(['open', '-g', url], check=True, capture_output=True, text=True)
 
 
 def add_area(title: str) -> str:
@@ -99,6 +94,70 @@ def update_area(area_id: str, title: Optional[str] = None,
     )
     subprocess.run(
         ['osascript', '-e', applescript],
+        check=True, capture_output=True, text=True
+    )
+
+
+def _applescript_string(value: str) -> str:
+    """Quote a value as an AppleScript string literal, escaping \\ then \"."""
+    return '"' + value.replace('\\', '\\\\').replace('"', '\\"') + '"'
+
+
+def create_todo(title: str, notes: Optional[str] = None,
+                list_id: Optional[str] = None, list_type: Optional[str] = None) -> str:
+    """Create a to-do via AppleScript and return its UUID.
+
+    The URL scheme can't report the new UUID: it only comes back through
+    x-success, which `open -g` never receives. AppleScript returns it, but
+    can't set headings, checklists or reminders, so callers set those
+    afterwards with a URL-scheme update.
+
+    Args:
+        title: Title of the to-do
+        notes: Notes for the to-do
+        list_id: UUID of the project or area to put it in (Inbox when omitted)
+        list_type: "project" or "area", required with list_id
+    """
+    properties = f'name:{_applescript_string(title)}'
+    if notes:
+        properties += f', notes:{_applescript_string(notes)}'
+    lines = [
+        'tell application "Things3"',
+        f'  set newToDo to make new to do with properties {{{properties}}}',
+    ]
+    if list_id is not None:
+        if list_type not in ('project', 'area'):
+            raise ValueError(f"list_type must be 'project' or 'area', not {list_type!r}")
+        # `make ... at <list>` is silently ignored (the to-do lands in the
+        # Inbox), and `move` fails with error 301; setting the property works.
+        # Always by id: Things doesn't keep project names unique.
+        lines.append(
+            f'  set {list_type} of newToDo to {list_type} id {_applescript_string(list_id)}'
+        )
+    lines += ['  return id of newToDo', 'end tell']
+    result = subprocess.run(
+        ['osascript', '-e', '\n'.join(lines)],
+        check=True, capture_output=True, text=True
+    )
+    return result.stdout.strip()
+
+
+def create_tags(names: List[str]) -> None:
+    """Create tags in Things via AppleScript (the URL scheme can't).
+
+    The URL scheme silently drops tags that don't exist yet, so new tags have
+    to be created before they're applied.
+    """
+    if not names:
+        return
+    lines = ['tell application "Things3"']
+    lines += [
+        f'  make new tag with properties {{name:{_applescript_string(name)}}}'
+        for name in names
+    ]
+    lines.append('end tell')
+    subprocess.run(
+        ['osascript', '-e', '\n'.join(lines)],
         check=True, capture_output=True, text=True
     )
 
