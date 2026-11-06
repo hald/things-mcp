@@ -139,6 +139,7 @@ After installation:
 
 ### Basic Operations
 - `get-todos` - Get todos, optionally filtered by project
+- `get-todos-by-ids` - Get specific todos by UUID in one call (for refreshing todos a client tracks)
 - `get-projects` - Get all projects
 - `get-areas` - Get all areas
 
@@ -155,12 +156,13 @@ After installation:
 - `get-recent` - Get open items created within a rolling time window
 
 ### Things URL Scheme Operations
-- `add-todo` - Create a new todo
+- `add-todo` - Create a new todo and return its ID
 - `add-project` - Create a new project
 - `add-area` - Create a new Area (via AppleScript; Things URL scheme has no add-area command)
 - `update-area` - Update an existing Area: rename or set tags (via AppleScript)
 - `update-todo` - Update an existing todo
 - `bulk-update-todos` - Apply the same update to many todos in a single operation
+- `set-checklist-items` - Tick or untick checklist items by title, keeping the others as they are
 - `update-project` - Update an existing project
 - `show-item` - Show a specific item or list in Things
 - `search-items` - Search for items in Things
@@ -207,12 +209,30 @@ Returns both completed and canceled items; each item's `status` tells them apart
 ### get-tag-usage
 - `only_unused` (optional, default: false) - Return only tags that no item references (cleanup candidates)
 
+### add-todo
+Returns the new todo's ID (`Created new todo: <title> (id: <uuid>)`). The todo is created with AppleScript, which reports the ID, and its heading, schedule, deadline, tags and checklist are then set with one URL-scheme update. That update needs the Things auth token; without it, the todo is created the old way and its ID isn't returned.
+
+### Tags that don't exist yet
+The Things URL scheme silently ignores tags that don't exist. `add-todo`, `update-todo` and `bulk-update-todos` check first: tags whose name starts with a prefix in `THINGS_MCP_CREATE_TAG_PREFIXES` (`;`-separated, e.g. `zed:;ai:`) are created, and any other unknown tags are left out and listed in the reply (`not applied, no such tag in Things: ...`). Unset, no tags are created.
+
 ### update-todo (checklist & tags)
 - `tags` - Replace all tags on the todo
 - `add_tags` - Append tags without removing existing ones
+- `remove_tags` - Remove these tags, keeping the others (combine with `add_tags`, not with `tags`)
 - `checklist_items` - Replace the entire checklist with this list; pass an empty list (`[]`) to clear it. Omit it to leave the checklist unchanged
 - `prepend_checklist_items` - Add these items to the top of the checklist
 - `append_checklist_items` - Add these items to the bottom of the checklist
+
+### set-checklist-items
+- `id` - UUID of the todo
+- `check` / `uncheck` - Titles of the items to mark completed or not completed
+
+The only way to change one checklist item is to rewrite the whole checklist, and Things gives every item a new ID when it does. So items are matched by title, and the checklist is rewritten with every other item's state unchanged. If a title matches no item or several, nothing changes. Requires the Things auth token.
+
+### get-todos-by-ids
+- `ids` - UUIDs of the todos to fetch
+
+Returns open, completed and canceled todos with their checklists and modification times. IDs that are missing, trashed, not todos, or outside the server's scope are all listed as `Not found` (and under `missing` in the structured content).
 
 ### bulk-update-todos
 Applies the same change to every todo in `ids` in a single operation. Requires the Things auth token to be enabled (Things → Settings → General → Enable Things URLs → Manage); the server reads it automatically.
@@ -315,6 +335,7 @@ Set these environment variables to enable HTTP transport:
 | `THINGS_MCP_PORT` | `8000` | HTTP server port |
 | `THINGS_MCP_AUTH_TOKEN` | *(this or `THINGS_MCP_TOKENS_FILE` is required for `http`)* | Shared secret, at least 32 characters. Clients send it as `Authorization: Bearer <token>` |
 | `THINGS_MCP_TOKENS_FILE` | *(none)* | Path to a JSON file mapping several tokens to their own areas and projects |
+| `THINGS_MCP_CREATE_TAG_PREFIXES` | *(none)* | Prefixes (`;`-separated) of tag names the server may create when they don't exist yet; see [Tags that don't exist yet](#tags-that-dont-exist-yet) |
 
 #### Example
 

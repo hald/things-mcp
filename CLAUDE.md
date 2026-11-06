@@ -49,19 +49,21 @@ Test coverage includes:
 This is a Model Context Protocol (MCP) server that bridges Claude Desktop with the Things 3 task management app on macOS. The architecture consists of:
 
 1. **src/things_mcp/server.py** - Main MCP server implementation using FastMCP (3.x)
-   - Defines all MCP tools for interacting with Things (26 tools)
+   - Defines all MCP tools for interacting with Things (28 tools)
    - List views (inbox, today, upcoming, etc.)
    - CRUD operations for todos/projects/areas (Areas have create/read/update — no delete by design; see below)
    - Search and tag operations
    - Things URL scheme integration
    - Implements Someday project filtering to match Things UI behavior
+   - `add_todo` creates via AppleScript (to get the UUID), then sets the remaining fields with one URL-scheme `update`; `set_checklist_items` matches items by title because Things gives checklist items new UUIDs on every rewrite
+   - Unknown tags: `_prepare_tags` creates missing ones with a prefix from `THINGS_MCP_CREATE_TAG_PREFIXES` and reports the rest (the URL scheme silently drops unknown tags)
    - **Pagination + structured responses**: the 16 list/search read tools accept optional `limit`/`offset` and return a FastMCP `ToolResult` carrying both a human-readable text channel and a `structured_content` envelope `{items, count, total, offset, limit}`. Two helpers drive this: `_paginate_format` (text) and `_paginate_result` (wraps text + JSON-safe structured data); `_error_result` wraps early-return/validation errors. `get_tag_usage` intentionally stays a plain string.
 
 2. **src/things_mcp/url_scheme.py** - Things URL scheme + AppleScript implementation
    - Constructs Things URLs for various operations
    - Runs `open -g <url>` (argv list, no shell or AppleScript) to execute URLs without bringing Things to the foreground
    - Handles authentication tokens for update operations
-   - `add_area`/`update_area` use AppleScript (`osascript`) since the Things URL scheme has no area commands; all user-supplied strings are escaped (`\` then `"`) before being embedded in the AppleScript string literal to prevent injection, and `osascript` is invoked with an argv list (no shell)
+   - `add_area`/`update_area`, `create_todo` and `create_tags` use AppleScript (`osascript`) since the Things URL scheme has no area commands; all user-supplied strings are escaped (`\` then `"`) before being embedded in the AppleScript string literal to prevent injection, and `osascript` is invoked with an argv list (no shell)
 
 3. **src/things_mcp/scope.py** - Limits access to configured Areas/Projects
    - `Scope` (names: `Area`, `Area->Project`, `->Project`) comes from `THINGS_MCP_SCOPE` (`;`-separated), or per HTTP token from the `scope` list in `THINGS_MCP_TOKENS_FILE` (SHA-256 hashes), carried as an access-token claim
@@ -87,7 +89,7 @@ This is a Model Context Protocol (MCP) server that bridges Claude Desktop with t
 ## Key Implementation Details
 
 - Uses things.py library for reading Things SQLite database
-- Write operations use the Things URL scheme API, except Area create/update which use AppleScript (`osascript`)
+- Write operations use the Things URL scheme API, except Area create/update, to-do creation and tag creation, which use AppleScript (`osascript`)
 - FastMCP (3.x) provides the MCP protocol implementation
 - Read tools return a `ToolResult` (human-readable text + `structured_content`); write/report tools and error paths return plain strings
 - Error handling for invalid UUIDs and missing parameters; pagination args validated by `_validate_pagination`

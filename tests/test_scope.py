@@ -109,6 +109,8 @@ def fake_things(mocker):
     mocker.patch("things.inbox", side_effect=lambda **kw: _copy([t for t in TODOS if t.get("start") == "Inbox"]))
     mocker.patch("things.search", side_effect=lambda query, **kw: _copy(TODOS))
     mocker.patch("things.token", return_value="auth-token")
+    mocker.patch("things_mcp.server.url_scheme.create_todo", return_value="T_NEW")
+    mocker.patch("things_mcp.server.url_scheme.create_tags")
     return mocker.patch("things_mcp.server.url_scheme.execute_url")
 
 
@@ -365,18 +367,41 @@ class TestScopedWrites:
         with pytest.raises(ScopeError):
             await server.add_todo(title="New")
         scoped.assert_not_called()
+        server.url_scheme.create_todo.assert_not_called()
 
     async def test_add_todo_resolves_title_to_scoped_id(self, scoped):
-        await server.add_todo(title="New", list_title="Launch")
+        result = await server.add_todo(title="New", list_title="Launch")
+        server.url_scheme.create_todo.assert_called_once_with(
+            title="New", notes=None, list_id="P_WORK", list_type="project",
+        )
+        assert "(id: T_NEW)" in result
+        # Nothing left for a follow-up update, and never a title Things could resolve itself.
+        scoped.assert_not_called()
+
+    async def test_add_todo_with_only_a_heading_goes_into_its_project(self, scoped):
+        await server.add_todo(title="New", heading_id="H_WORK")
+        assert server.url_scheme.create_todo.call_args.kwargs["list_id"] == "P_WORK"
         url = scoped.call_args[0][0]
-        assert "list-id=P_WORK" in url
-        assert "list=" not in url
+        assert url.startswith("things:///update?")
+        assert "id=T_NEW" in url and "heading-id=H_WORK" in url
 
     async def test_add_todo_into_out_of_scope_project_is_rejected(self, scoped):
         with pytest.raises(ScopeError):
             await server.add_todo(title="New", list_id="P_HOME")
         with pytest.raises(ScopeError):
             await server.add_todo(title="New", list_id="P_WORK", heading_id="H_HOME")
+        scoped.assert_not_called()
+        server.url_scheme.create_todo.assert_not_called()
+
+    async def test_get_todos_by_ids_treats_out_of_scope_as_missing(self, scoped):
+        result = await server.get_todos_by_ids(["T_PROJECT", "T_HOME", "NOPE"])
+        assert uuids(result) == {"T_PROJECT"}
+        assert result.structured_content["missing"] == ["T_HOME", "NOPE"]
+        assert "Home task" not in tool_text(result)
+
+    async def test_set_checklist_items_out_of_scope_is_rejected(self, scoped):
+        with pytest.raises(ScopeError):
+            await server.set_checklist_items(id="T_HOME", check=["x"])
         scoped.assert_not_called()
 
     async def test_add_project_needs_a_scoped_area(self, scoped):

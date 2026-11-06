@@ -5,6 +5,11 @@
 ### Features
 
 - **Limit Access to Areas and Projects**: `THINGS_MCP_SCOPE` limits a server to areas and projects listed by name (`Work; Clients->Acme; ->Solo`). Names that match nothing or more than one item grant nothing. Reads only return in-scope items, writes are rejected unless the item and its destination are in scope, and tools that can't be limited (`add_area`, `search_items`, `show_item` on built-in lists) are disabled. In HTTP mode, `THINGS_MCP_TOKENS_FILE` maps each bearer token (stored as a SHA-256 hash) to its own scope, so several clients can share one server with different access. Unset, nothing changes.
+- **`add_todo` Returns the New ID**: The todo is now created with AppleScript, which reports its UUID, and placed by project or area ID; heading, schedule, deadline, tags and checklist follow in one URL-scheme update. The reply is `Created new todo: <title> (id: <uuid>)`. Without the Things auth token it falls back to the old URL-scheme add, without an ID.
+- **`set_checklist_items`**: Ticks or unticks checklist items by title and keeps every other item's state. Previously the only option, `checklist_items`, replaced the whole checklist with unticked items. Things gives every item a new ID on each rewrite, which is why items are matched by title.
+- **`get_todos_by_ids`**: Fetches specific todos (open, completed or canceled) in one call, for clients that refresh todos they track. Missing, trashed and out-of-scope IDs are all reported as not found.
+- **`remove_tags`** on `update_todo`: Removes tags and keeps the rest, without a separate read and `tags` rewrite.
+- **Unknown Tags Are Reported, or Created**: The URL scheme silently drops tags that don't exist. `add_todo`, `update_todo` and `bulk_update_todos` now create missing tags whose name starts with a prefix in `THINGS_MCP_CREATE_TAG_PREFIXES` (e.g. `zed:;ai:`), and list any other unknown tags in the reply as not applied.
 
 ### Security
 
