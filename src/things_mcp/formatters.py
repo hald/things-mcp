@@ -101,8 +101,19 @@ def format_todo(todo: dict) -> str:
         except Exception:
             pass
 
+    # A repeating to-do's template (things.py 1.1.0+) has no start_date; its
+    # next_instance_start_date says when Things will generate the next copy.
+    # Things stores templates with start "Someday", but the app shows them in
+    # Upcoming, so the next instance date replaces the List line. The key is
+    # present (possibly None) only when the caller passed a template.
+    if 'next_instance_start_date' in todo:
+        next_instance = todo['next_instance_start_date']
+        if next_instance:
+            todo_text += f"\nRepeating: next instance {next_instance}"
+        else:
+            todo_text += "\nRepeating: no next instance scheduled"
     # Start/list location with Someday inheritance from the parent project.
-    if todo.get('start'):
+    elif todo.get('start'):
         effective_start = todo['start']
         if effective_start != 'Someday' and parent_project and parent_project.get('start') == 'Someday':
             effective_start = 'Someday'
@@ -145,6 +156,20 @@ def format_todo(todo: dict) -> str:
             todo_text += f"\n  {checkbox} {item['title']}"
 
     return todo_text
+
+
+def format_repeating_template(template: dict) -> str:
+    """Format a repeating to-do's template, as returned by
+    ``things.tasks(is_repeating_template=True)`` (things.py 1.1.0+).
+
+    things.py omits ``next_instance_start_date`` when Things has no next
+    instance date for the template (a paused template, or one that repeats after completion while an instance is still open). Put the key back so format_todo knows it
+    has a template and says so instead of showing the stored "Someday" list.
+    """
+    return format_todo({
+        **template,
+        'next_instance_start_date': template.get('next_instance_start_date'),
+    })
 
 
 def format_project(project: dict, include_items: bool = False) -> str:

@@ -7,7 +7,10 @@ from datetime import datetime, timedelta
 import things
 from fastmcp import FastMCP
 from fastmcp.tools.tool import ToolResult
-from .formatters import format_todo, format_project, format_area, format_tag, format_heading
+from .formatters import (
+    format_todo, format_project, format_area, format_tag, format_heading,
+    format_repeating_template,
+)
 from . import url_scheme
 
 # Configure logging
@@ -220,7 +223,10 @@ async def get_today(limit: int = None, offset: int = 0) -> ToolResult:
 
 @mcp.tool
 async def get_upcoming(limit: int = None, offset: int = 0) -> ToolResult:
-    """Get upcoming todos
+    """Get upcoming todos, including the next instance of each repeating todo
+
+    Repeating todos appear as their template (things.py 1.1.0+): no start_date,
+    and next_instance_start_date for when Things will generate the next copy.
 
     Args:
         limit: Maximum number of items to return (default: all)
@@ -233,6 +239,36 @@ async def get_upcoming(limit: int = None, offset: int = 0) -> ToolResult:
     # Filter out tasks from Someday projects, then paginate
     todos = filter_someday_project_tasks(todos or [])
     return _paginate_result(todos, format_todo, limit, offset, "No items found")
+
+
+def _next_instance_sort_key(template):
+    """Sort templates by next instance date, those without one last, then title."""
+    next_instance = template.get('next_instance_start_date')
+    return (next_instance is None, str(next_instance or ''), (template.get('title') or '').lower())
+
+
+@mcp.tool
+async def get_repeating_templates(limit: int = None, offset: int = 0) -> ToolResult:
+    """Get the templates of repeating todos: the rule items Things generates each instance from
+
+    Each template carries next_instance_start_date, the date Things will create
+    the next real todo. It is absent when Things has no next instance date
+    (a paused template, or one that repeats after completion while an instance is still open). Templates sort by that date, those without one last, then by
+    title. The generated instances are ordinary todos and appear in the other
+    list tools; templates appear only here and in get_upcoming.
+
+    Args:
+        limit: Maximum number of items to return (default: all)
+        offset: Number of items to skip from the start (default: 0)
+    """
+    err = _validate_pagination(limit, offset)
+    if err:
+        return _error_result(err)
+    templates = things.todos(is_repeating_template=True, include_items=True) or []
+    templates.sort(key=_next_instance_sort_key)
+    return _paginate_result(
+        templates, format_repeating_template, limit, offset, "No repeating todos found"
+    )
 
 @mcp.tool
 async def get_anytime(limit: int = None, offset: int = 0) -> ToolResult:
