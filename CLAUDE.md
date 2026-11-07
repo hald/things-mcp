@@ -49,13 +49,13 @@ Test coverage includes:
 This is a Model Context Protocol (MCP) server that bridges Claude Desktop with the Things 3 task management app on macOS. The architecture consists of:
 
 1. **src/things_mcp/server.py** - Main MCP server implementation using FastMCP (3.x)
-   - Defines all MCP tools for interacting with Things (26 tools)
+   - Defines all MCP tools for interacting with Things (27 tools)
    - List views (inbox, today, upcoming, etc.)
    - CRUD operations for todos/projects/areas (Areas have create/read/update — no delete by design; see below)
    - Search and tag operations
    - Things URL scheme integration
    - Implements Someday project filtering to match Things UI behavior
-   - **Pagination + structured responses**: the 16 list/search read tools accept optional `limit`/`offset` and return a FastMCP `ToolResult` carrying both a human-readable text channel and a `structured_content` envelope `{items, count, total, offset, limit}`. Two helpers drive this: `_paginate_format` (text) and `_paginate_result` (wraps text + JSON-safe structured data); `_error_result` wraps early-return/validation errors. `get_tag_usage` intentionally stays a plain string.
+   - **Pagination + structured responses**: the 17 list/search read tools accept optional `limit`/`offset` and return a FastMCP `ToolResult` carrying both a human-readable text channel and a `structured_content` envelope `{items, count, total, offset, limit}`. Two helpers drive this: `_paginate_format` (text) and `_paginate_result` (wraps text + JSON-safe structured data); `_error_result` wraps early-return/validation errors. `get_tag_usage` intentionally stays a plain string.
 
 2. **src/things_mcp/url_scheme.py** - Things URL scheme + AppleScript implementation
    - Constructs Things URLs for various operations
@@ -67,7 +67,7 @@ This is a Model Context Protocol (MCP) server that bridges Claude Desktop with t
    - Converts Things database objects to human-readable text
    - Handles nested data (projects within areas, checklist items, etc.)
 
-4. **tests/** - Unit test suite (192 tests)
+4. **tests/** - Unit test suite (202 tests)
    - **conftest.py** - Pytest fixtures and mock data
    - **_helpers.py** - `tool_text()` reads the text channel from a `ToolResult` (or a plain-string result) so text assertions work across both return shapes
    - **test_url_scheme.py** - Tests for URL construction
@@ -76,10 +76,12 @@ This is a Model Context Protocol (MCP) server that bridges Claude Desktop with t
    - **test_things_server_headings.py** - Tests for heading functionality
    - **test_someday_filtering.py** - Tests for Someday project filtering
    - **test_mcp_server_filtering.py** - Integration tests for MCP server filtering
+   - **test_repeating_templates.py** - Tests for repeating to-do templates (`get_repeating_templates`, templates in `get_upcoming`)
 
 ## Key Implementation Details
 
 - Uses things.py library for reading Things SQLite database
+- **Repeating to-dos**: `get_repeating_templates` and `get_upcoming` read templates through `things.tasks(is_repeating_template=True)` / `things.upcoming()` (things.py 1.1.0+). The server never queries the Things SQLite file directly
 - Write operations use the Things URL scheme API, except Area create/update which use AppleScript (`osascript`)
 - FastMCP (3.x) provides the MCP protocol implementation
 - Read tools return a `ToolResult` (human-readable text + `structured_content`); write/report tools and error paths return plain strings

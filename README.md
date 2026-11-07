@@ -131,7 +131,8 @@ After installation:
 ### List Views
 - `get-inbox` - Get todos from Inbox
 - `get-today` - Get todos due today
-- `get-upcoming` - Get upcoming todos
+- `get-upcoming` - Get upcoming todos, including the next instance of each repeating todo
+- `get-repeating-templates` - Get the templates of repeating todos, with the date Things will generate each one's next instance
 - `get-anytime` - Get todos from Anytime list
 - `get-someday` - Get todos from Someday list, including tasks in Someday projects
 - `get-logbook` - Get completed and canceled todos, optionally for one project
@@ -168,13 +169,20 @@ After installation:
 ## Tool Parameters
 
 ### Pagination (most read tools)
-The list/search read tools (`get-inbox`, `get-today`, `get-upcoming`, `get-anytime`, `get-someday`, `get-logbook`, `get-trash`, `get-todos`, `get-projects`, `get-areas`, `get-tags`, `get-tagged-items`, `get-headings`, `search-todos`, `search-advanced`, `get-recent`) accept optional pagination:
+The list/search read tools (`get-inbox`, `get-today`, `get-upcoming`, `get-repeating-templates`, `get-anytime`, `get-someday`, `get-logbook`, `get-trash`, `get-todos`, `get-projects`, `get-areas`, `get-tags`, `get-tagged-items`, `get-headings`, `search-todos`, `search-advanced`, `get-recent`) accept optional pagination:
 - `limit` - Maximum number of items to return (default: all; `get-logbook` defaults to 50)
 - `offset` - Number of items to skip from the start (default: 0)
 
 When neither is set, output is unchanged. When set, a `Showing X-Y of Z items` header is prepended so you know how much more there is. An `offset` past the end is reported distinctly from an empty result.
 
 These same read tools also return **structured content** alongside the human-readable text: MCP clients receive the raw item dicts plus `count`/`total`/`offset`/`limit` under `structured_content`, so data can be consumed programmatically without parsing the formatted text.
+
+### get-upcoming / get-repeating-templates (repeating todos)
+A repeating todo in Things is a template plus the instances Things generates from it. Instances are ordinary todos and show up in every list tool. The template shows up in two places (things.py 1.1.0 or newer):
+- `get-upcoming` includes each template whose next instance is in the future, sorted by date alongside the scheduled todos
+- `get-repeating-templates` lists every template, sorted by next instance date, then title, with the ones that have no date last
+
+A template has no `start_date`. Its `next_instance_start_date` is the date Things will create the next instance; it is absent when Things has no next instance date (a paused template, or one that repeats after completion while an instance is still open). The text output shows this as `Repeating: next instance YYYY-MM-DD`, or `Repeating: no next instance scheduled`. The instances are what you complete or update; the template holds the repeat rule, which no tool here edits.
 
 ### get-todos
 - `project_uuid` (optional) - Filter todos by project

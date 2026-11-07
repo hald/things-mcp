@@ -1248,15 +1248,18 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'test'", specifier = ">=8.0.0" },
     { name = "pytest-asyncio", marker = "extra == 'test'", specifier = ">=0.24.0" },
     { name = "pytest-mock", marker = "extra == 'test'", specifier = ">=3.14.0" },
-    { name = "things-py", specifier = ">=0.0.15" },
+    { name = "things-py", specifier = ">=1.1.0" },
 ]
 provides-extras = ["test"]
 
 [[package]]
 name = "things-py"
-version = "1.0.1"
+version = "1.1.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/8a/f7/7ca01abf3927ed680688e2ce4c608f0c252dc224134ca2b1f04940db0efd/things_py-1.0.1.tar.gz", hash = "sha256:6d760727e57c0cfb85f18a63b36459287573f7d7c0442874a76d4ef38b92089d", size = 30360, upload-time = "2026-02-28T22:23:41.197Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b2/61/be69a754376444f85bfd7ba41d820353fc1ed2759aef4ba3c3177f4757dd/things_py-1.1.0.tar.gz", hash = "sha256:74da445f499dc647e01671a3aeebffb2e1b2c032cef98b6704dc21c6acb36d6f", size = 32062, upload-time = "2026-11-07T14:14:04.49Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f7/51/e3738a2f8220a2f922dd1b5ea715cdd38edc1ff5784b7c46ba927e619419/things_py-1.1.0-py3-none-any.whl", hash = "sha256:ddc46de352067ff0c783c2fc0fc6d9f636a0e58b0ee3e486f65d1883ffad88df", size = 30606, upload-time = "2026-11-07T14:14:03.35Z" },
+]
 
 [[package]]
 name = "typing-extensions"

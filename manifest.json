@@ -31,7 +31,11 @@
     },
     {
       "name": "get_upcoming",
-      "description": "Get upcoming todos"
+      "description": "Get upcoming todos, including the next instance of each repeating todo"
+    },
+    {
+      "name": "get_repeating_templates",
+      "description": "Get the templates of repeating todos, with the date Things will generate each one's next instance"
     },
     {
       "name": "get_anytime",

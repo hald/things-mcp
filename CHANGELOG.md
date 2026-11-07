@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Features
+
+- **Repeating To-Dos**: New `get_repeating_templates` tool lists the templates of repeating to-dos, sorted by the date Things will generate the next instance, and `get_upcoming` now includes each template whose next instance is in the future. Both read through things.py 1.1.0's `is_repeating_template` option and `next_instance_start_date` field; the text output shows `Repeating: next instance YYYY-MM-DD` in place of the stored "Someday" list. ([#57][i57], follows up [#71][p71])
+
+### Maintenance
+
+- **things.py 1.1.0**: The dependency moves from `things-py>=0.0.15` to `>=1.1.0`, the first release with the repeating-template option.
+
+[i57]: https://github.com/hald/things-mcp/issues/57
+[p71]: https://github.com/hald/things-mcp/pull/71
+
 ## v0.8.2 - 2026-10-25
 
 ### Bug fixes
