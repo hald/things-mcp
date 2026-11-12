@@ -67,12 +67,13 @@ This is a Model Context Protocol (MCP) server that bridges Claude Desktop with t
    - Converts Things database objects to human-readable text
    - Handles nested data (projects within areas, checklist items, etc.)
 
-4. **tests/** - Unit test suite (192 tests)
+4. **tests/** - Unit test suite (195 tests)
    - **conftest.py** - Pytest fixtures and mock data
    - **_helpers.py** - `tool_text()` reads the text channel from a `ToolResult` (or a plain-string result) so text assertions work across both return shapes
    - **test_url_scheme.py** - Tests for URL construction
    - **test_formatters.py** - Tests for data formatting
    - **test_things_server.py** - Tests for server tools (incl. pagination + structured-content shape)
+   - **test_tool_annotations.py** - Every tool has a title and the expected read/create/edit hints
    - **test_things_server_headings.py** - Tests for heading functionality
    - **test_someday_filtering.py** - Tests for Someday project filtering
    - **test_mcp_server_filtering.py** - Integration tests for MCP server filtering
