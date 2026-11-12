@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Features
+
+- **Tool Titles and Annotations**: Every tool now has a human-readable title (e.g. "Create To-Do", "Find Items", "Edit Project", following the names of Things' own Shortcuts actions) and MCP behavior hints: `readOnlyHint` on the 17 read tools, `destructiveHint` on the update tools, and `openWorldHint: false` throughout. Clients such as Claude now show "Create To-Do" instead of `add_todo`, and can group read-only tools apart from ones that change data.
+
 ## v0.8.2 - 2026-10-25
 
 ### Bug fixes
